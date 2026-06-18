@@ -34,15 +34,19 @@ static void shift_buffer(float* buf, int shift_amount) {
     memmove(buf, buf + shift_amount, (WINDOW_SIZE - shift_amount) * sizeof(float));
 }
 
-static void read_imu_data(int index) {
-    // STUB: Replace this with actual MPU6886 or I2C reads
-    // Generating some dummy noise
-    ax_buf[index] = (float)esp_random() / (float)UINT32_MAX;
-    ay_buf[index] = (float)esp_random() / (float)UINT32_MAX;
-    az_buf[index] = 1.0f + ((float)esp_random() / (float)UINT32_MAX * 0.1f);
-    gx_buf[index] = 0.0f;
-    gy_buf[index] = 0.0f;
-    gz_buf[index] = 0.0f;
+static void read_imu_data(m5stickc_plus_t *device, int index) {
+    float ax = 0.0f, ay = 0.0f, az = 0.0f;
+    float gx = 0.0f, gy = 0.0f, gz = 0.0f;
+    if (device) {
+        m5stickc_plus_read_accel_g(device, &ax, &ay, &az);
+        m5stickc_plus_read_gyro_dps(device, &gx, &gy, &gz);
+    }
+    ax_buf[index] = ax;
+    ay_buf[index] = ay;
+    az_buf[index] = az;
+    gx_buf[index] = gx;
+    gy_buf[index] = gy;
+    gz_buf[index] = gz;
 }
 
 void confirm_throw_result(bool is_hit) {
@@ -53,6 +57,7 @@ void confirm_throw_result(bool is_hit) {
 }
 
 static void imu_task(void *pvParameters) {
+    m5stickc_plus_t *device = (m5stickc_plus_t *)pvParameters;
     ESP_LOGI(TAG, "Starting IMU Windowing Task");
 
     int sample_idx = 0;
@@ -64,7 +69,7 @@ static void imu_task(void *pvParameters) {
             continue;
         }
 
-        read_imu_data(sample_idx);
+        read_imu_data(device, sample_idx);
         sample_idx++;
 
         if (sample_idx == WINDOW_SIZE) {
@@ -107,6 +112,6 @@ static void imu_task(void *pvParameters) {
     }
 }
 
-void start_windowing_task(void) {
-    xTaskCreate(imu_task, "imu_task", 8192, NULL, 5, NULL);
+void start_windowing_task(m5stickc_plus_t *device) {
+    xTaskCreate(imu_task, "imu_task", 8192, device, 5, NULL);
 }
