@@ -55,7 +55,7 @@ def calculate_trajectory(ax, ay, az, gx, gy, gz, dt=0.02):
     gx, gy, gz = np.asarray(gx), np.asarray(gy), np.asarray(gz)
     
     if len(ax) == 0:
-        return {"final_position": [0.0, 0.0, 0.0], "final_rotation_deg": [0.0, 0.0, 0.0]}
+        return {"final_position": [0.0, 0.0, 0.0], "final_rotation_deg": [0.0, 0.0, 0.0], "path": []}
     
     # Very simplified: just double integrate acceleration (assuming gravity is roughly removed or not accounted for properly in this basic version)
     # Convert g to m/s^2
@@ -73,6 +73,9 @@ def calculate_trajectory(ax, ay, az, gx, gy, gz, dt=0.02):
     py = np.cumsum(vy * dt)
     pz = np.cumsum(vz * dt)
     
+    # Path coordinates
+    path = [[float(px[i]), float(py[i]), float(pz[i])] for i in range(len(px))]
+    
     # Calculate simple gyro integrated rotation (degrees) if provided
     if len(gx) > 0:
         rx = np.sum(gx * dt)
@@ -83,5 +86,6 @@ def calculate_trajectory(ax, ay, az, gx, gy, gz, dt=0.02):
     
     return {
         "final_position": [float(px[-1]), float(py[-1]), float(pz[-1])],
-        "final_rotation_deg": [float(rx), float(ry), float(rz)]
+        "final_rotation_deg": [float(rx), float(ry), float(rz)],
+        "path": path
     }

@@ -26,6 +26,7 @@ static float gz_buf[WINDOW_SIZE];
 
 static volatile bool waiting_for_input = false;
 static volatile bool hit_result = false;
+static char user_id[32] = {0};
 
 // Instance of the decision tree
 static Eloquent::ML::Port::DecisionTree tree;
@@ -92,7 +93,7 @@ static void imu_task(void *pvParameters) {
                 ESP_LOGI(TAG, "User input received. Hit: %d. Sending to MQTT...", hit_result);
                 
                 // Publish MQTT
-                mqtt_publish_throw_data("player1", hit_result, ax_buf, ay_buf, az_buf, gx_buf, gy_buf, gz_buf, WINDOW_SIZE);
+                mqtt_publish_throw_data(user_id, hit_result, ax_buf, ay_buf, az_buf, gx_buf, gy_buf, gz_buf, WINDOW_SIZE);
                 
                 // Clear the buffer completely to avoid double triggering on the tail end of the throw
                 sample_idx = 0;
@@ -113,5 +114,9 @@ static void imu_task(void *pvParameters) {
 }
 
 void start_windowing_task(m5stickc_plus_t *device) {
+    if (user_id[0] == 0) {
+        snprintf(user_id, sizeof(user_id), "user_%lu", (unsigned long)esp_random());
+        ESP_LOGI(TAG, "Generated device UUID: %s", user_id);
+    }
     xTaskCreate(imu_task, "imu_task", 8192, device, 5, NULL);
 }

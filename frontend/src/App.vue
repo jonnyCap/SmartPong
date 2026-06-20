@@ -19,15 +19,28 @@
       <div class="user-selector">
         <label for="user">Current Player</label>
         <select id="user" v-model="selectedUser" @change="handleUserChange">
-          <option value="player1">Player 1</option>
-          <option value="player2">Player 2</option>
+          <option v-for="u in availableUsers" :key="u" :value="u">{{ u }}</option>
+          <option v-if="availableUsers.length === 0" value="player1">Waiting for data...</option>
         </select>
       </div>
     </aside>
     
     <main class="main-content">
       <header class="top-header">
-        <h2>Overview <span class="badge">Live</span></h2>
+        <div class="header-left">
+          <h2>Overview <span class="badge">Live</span></h2>
+          <select v-model="viewMode" class="view-selector glass-panel">
+            <option value="all">All Throws (Average)</option>
+            <option value="hits">Hits Only (Average)</option>
+            <option value="misses">Misses Only (Average)</option>
+            <option value="latest">Latest Throw</option>
+            <optgroup label="Historical Throws">
+              <option v-for="(throwData, index) in reversedThrows" :key="index" :value="'history-' + (userProfile?.throws?.length - 1 - index)">
+                Throw #{{ userProfile?.throws?.length - index }} ({{ throwData.is_hit ? 'Hit' : 'Miss' }})
+              </option>
+            </optgroup>
+          </select>
+        </div>
         <div class="status-indicator" :class="{ 'connected': mqttConnected }">
           <span class="dot"></span>
           {{ mqttConnected ? 'Broker Connected' : 'Connecting...' }}
@@ -35,8 +48,8 @@
       </header>
       
       <div v-if="currentView === 'dashboard'" class="dashboard-grid">
-        <Dashboard :user-profile="userProfile" :latest-throw="latestThrow" class="dashboard-stats" />
-        <Throw3DViewer :latest-trajectory="latestThrow?.trajectory" class="dashboard-3d" />
+        <Dashboard :user-profile="userProfile" :latest-throw="latestThrow" :view-mode="viewMode" class="dashboard-stats" />
+        <Throw3DViewer :latest-trajectory="latestThrow?.trajectory" :user-profile="userProfile" :view-mode="viewMode" class="dashboard-3d" />
       </div>
       
       <Settings v-else-if="currentView === 'settings'" />
@@ -45,11 +58,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import Dashboard from './components/Dashboard.vue';
 import Throw3DViewer from './components/Throw3DViewer.vue';
 import Settings from './components/Settings.vue';
-import { fetchUserProfile } from './services/api';
+import { fetchUserProfile, fetchUsers } from './services/api';
 import { connectMqtt, disconnectMqtt } from './services/mqttClient';
 
 const selectedUser = ref('player1');
@@ -57,8 +70,27 @@ const currentView = ref('dashboard');
 const userProfile = ref(null);
 const latestThrow = ref(null);
 const mqttConnected = ref(false);
+const availableUsers = ref([]);
+const viewMode = ref('all');
+
+const reversedThrows = computed(() => {
+  if (!userProfile.value || !userProfile.value.throws) return [];
+  return [...userProfile.value.throws].reverse();
+});
+
+const loadUsers = async () => {
+  const users = await fetchUsers();
+  if (users && users.length > 0) {
+    availableUsers.value = users;
+    if (!availableUsers.value.includes(selectedUser.value)) {
+      selectedUser.value = availableUsers.value[0];
+      loadProfile();
+    }
+  }
+};
 
 const loadProfile = async () => {
+  if (!selectedUser.value) return;
   userProfile.value = await fetchUserProfile(selectedUser.value);
 };
 
@@ -68,7 +100,11 @@ const handleUserChange = () => {
 };
 
 onMounted(() => {
+  loadUsers();
   loadProfile();
+  
+  // Refresh users list occasionally
+  setInterval(loadUsers, 5000);
   
   connectMqtt((payload) => {
     mqttConnected.value = true;
@@ -172,6 +208,22 @@ nav li.active {
   justify-content: space-between;
   align-items: center;
   padding: 0 0.5rem;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.view-selector {
+  padding: 0.5rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  outline: none;
+  font-size: 0.85rem;
 }
 
 .badge {

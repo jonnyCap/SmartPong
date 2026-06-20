@@ -1,27 +1,84 @@
 <template>
   <div class="viewer-wrapper glass-panel">
-    <h3>3D Trajectory Viewer</h3>
     <div class="canvas-container" ref="canvasContainer"></div>
-    <div v-if="!latestTrajectory" class="overlay">
+    <div v-if="!currentPathData || currentPathData.length === 0" class="overlay">
       <p>Waiting for throw data...</p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import * as THREE from 'three';
 
 const props = defineProps({
   latestTrajectory: {
     type: Object,
     default: null
+  },
+  userProfile: {
+    type: Object,
+    default: null
+  },
+  viewMode: {
+    type: String,
+    default: 'all'
   }
 });
 
 const canvasContainer = ref(null);
 let scene, camera, renderer, animationId;
 let throwPath, ballMesh;
+
+const reversedThrows = computed(() => {
+  if (!props.userProfile || !props.userProfile.throws) return [];
+  return [...props.userProfile.throws].reverse();
+});
+
+const currentPathData = computed(() => {
+  if (props.viewMode === 'latest' && props.latestTrajectory && props.latestTrajectory.path) {
+    return props.latestTrajectory.path;
+  }
+  
+  if (!props.userProfile || !props.userProfile.throws || props.userProfile.throws.length === 0) {
+    return [];
+  }
+  
+  if (props.viewMode.startsWith('history-')) {
+    const idx = parseInt(props.viewMode.split('-')[1]);
+    return props.userProfile.throws[idx]?.trajectory_path || [];
+  }
+  
+  if (props.viewMode.startsWith('avg-') || props.viewMode === 'all' || props.viewMode === 'hits' || props.viewMode === 'misses') {
+    let throwsToAvg = props.userProfile.throws;
+    if (props.viewMode === 'avg-hits' || props.viewMode === 'hits') {
+      throwsToAvg = throwsToAvg.filter(t => t.is_hit);
+    } else if (props.viewMode === 'avg-misses' || props.viewMode === 'misses') {
+      throwsToAvg = throwsToAvg.filter(t => !t.is_hit);
+    }
+    
+    if (throwsToAvg.length === 0) return [];
+    
+    // Average trajectories (simple average of points, assuming similar length)
+    // Find min length
+    let minLen = Math.min(...throwsToAvg.map(t => (t.trajectory_path || []).length));
+    if (minLen === Infinity || minLen === 0) return [];
+    
+    const avgPath = [];
+    for (let i = 0; i < minLen; i++) {
+      let sumX = 0, sumY = 0, sumZ = 0;
+      for (const t of throwsToAvg) {
+        sumX += t.trajectory_path[i][0];
+        sumY += t.trajectory_path[i][1];
+        sumZ += t.trajectory_path[i][2];
+      }
+      avgPath.push([sumX / throwsToAvg.length, sumY / throwsToAvg.length, sumZ / throwsToAvg.length]);
+    }
+    return avgPath;
+  }
+  
+  return [];
+});
 
 const initThreeJS = () => {
   const width = canvasContainer.value.clientWidth;
@@ -71,7 +128,6 @@ const initThreeJS = () => {
   const animate = () => {
     animationId = requestAnimationFrame(animate);
     
-    // Slow rotation of camera for cinematic effect
     if (camera) {
       camera.position.x = Math.sin(Date.now() * 0.0005) * 10;
       camera.position.z = Math.cos(Date.now() * 0.0005) * 10;
@@ -82,7 +138,6 @@ const initThreeJS = () => {
   };
   animate();
 
-  // Resize handler
   window.addEventListener('resize', onWindowResize);
 };
 
@@ -95,62 +150,62 @@ const onWindowResize = () => {
   renderer.setSize(width, height);
 };
 
-const updateTrajectory = (trajectory) => {
-  if (!trajectory || !trajectory.final_position) return;
-  
-  const [px, py, pz] = trajectory.final_position;
-  
-  // Remove old path if exists
+let moveBallAnimationId;
+
+const updateTrajectory = (pathData) => {
   if (throwPath) {
     scene.remove(throwPath);
   }
+  if (moveBallAnimationId) {
+    cancelAnimationFrame(moveBallAnimationId);
+  }
 
-  // Create simple straight path for visualization (as we only get final position from basic backend)
+  if (!pathData || pathData.length < 2) return;
+
+  const points = pathData.map(p => new THREE.Vector3(p[0] * 0.1, p[1] * 0.1, p[2] * 0.1));
+  
+  // Create a smooth curve
+  const curve = new THREE.CatmullRomCurve3(points);
+  const curvePoints = curve.getPoints(50);
+  const geometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
+  
   const material = new THREE.LineBasicMaterial({ 
-    color: 0x10B981,
+    color: props.viewMode.includes('miss') ? 0xEF4444 : 0x10B981,
     linewidth: 2 
   });
-  
-  const points = [];
-  points.push(new THREE.Vector3(0, 0, 0));
-  // Scale down position for viewer
-  const endPoint = new THREE.Vector3(px * 0.1, py * 0.1, pz * 0.1);
-  points.push(endPoint);
 
-  const geometry = new THREE.BufferGeometry().setFromPoints(points);
   throwPath = new THREE.Line(geometry, material);
   scene.add(throwPath);
 
-  // Animate ball moving to end position
-  const startPos = new THREE.Vector3(0, 0, 0);
+  // Animate ball along the curve
   let progress = 0;
   
   const moveBall = () => {
-    progress += 0.02;
+    progress += 0.01;
     if (progress <= 1) {
-      ballMesh.position.lerpVectors(startPos, endPoint, progress);
-      requestAnimationFrame(moveBall);
+      const pos = curve.getPointAt(progress);
+      ballMesh.position.copy(pos);
+      moveBallAnimationId = requestAnimationFrame(moveBall);
     }
   };
   moveBall();
 };
 
-watch(() => props.latestTrajectory, (newTraj) => {
-  if (newTraj) {
-    updateTrajectory(newTraj);
-  }
+watch(currentPathData, (newPath) => {
+  updateTrajectory(newPath);
 }, { deep: true });
 
 onMounted(() => {
   initThreeJS();
-  if (props.latestTrajectory) {
-    updateTrajectory(props.latestTrajectory);
+  if (currentPathData.value) {
+    updateTrajectory(currentPathData.value);
   }
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', onWindowResize);
   if (animationId) cancelAnimationFrame(animationId);
+  if (moveBallAnimationId) cancelAnimationFrame(moveBallAnimationId);
   if (renderer && renderer.domElement) {
     renderer.domElement.remove();
   }
@@ -166,14 +221,7 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-h3 {
-  color: var(--text-muted);
-  font-size: 1rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 1rem;
-  z-index: 10;
-}
+
 
 .canvas-container {
   flex-grow: 1;

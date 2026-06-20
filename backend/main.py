@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi_mqtt import FastMQTT, MQTTConfig
 from pydantic import BaseModel
 import json
@@ -7,6 +8,14 @@ from metrics import calculate_peak_acceleration, calculate_drift, calculate_traj
 from profiles import profile_manager
 
 app = FastAPI(title="SmartPong Backend")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # We use test.mosquitto.org as a public broker for prototyping.
 # The ESP32 firmware config should match this broker and these topics.
@@ -59,7 +68,10 @@ async def message(client, topic, payload, qos, properties):
                 user_id=payload_obj.user_id,
                 peak_accel=peak_accel,
                 drift_angle=drift_angle,
-                is_hit=payload_obj.hit
+                is_hit=payload_obj.hit,
+                trajectory_path=trajectory.get("path", []),
+                control_category=control_category,
+                drift_category=drift_category
             )
             
             # 4. Return results to the watch
@@ -83,6 +95,10 @@ async def message(client, topic, payload, qos, properties):
 @app.get("/")
 def read_root():
     return {"message": "SmartPong Backend is running."}
+
+@app.get("/users")
+def get_users():
+    return {"users": profile_manager.get_all_user_ids()}
 
 @app.get("/profiles/{user_id}")
 def get_user_profile(user_id: str):

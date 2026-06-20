@@ -7,6 +7,9 @@ class ThrowStats(BaseModel):
     peak_acceleration: float
     drift_angle: float
     is_hit: bool
+    trajectory_path: List[List[float]] = []
+    control_category: str = ""
+    drift_category: str = ""
 
 class UserProfile(BaseModel):
     user_id: str
@@ -59,6 +62,9 @@ class ProfileManager:
             return UserProfile(user_id=user_id)
         return UserProfile(**doc)
 
+    def get_all_user_ids(self) -> List[str]:
+        return self.collection.distinct("user_id")
+
     def save_profile(self, profile: UserProfile):
         self.collection.update_one(
             {"user_id": profile.user_id},
@@ -66,7 +72,7 @@ class ProfileManager:
             upsert=True
         )
         
-    def add_throw(self, user_id: str, peak_accel: float, drift_angle: float, is_hit: bool):
+    def add_throw(self, user_id: str, peak_accel: float, drift_angle: float, is_hit: bool, trajectory_path: List[List[float]], control_category: str, drift_category: str):
         profile = self.get_profile(user_id)
         profile.total_throws += 1
         if is_hit:
@@ -75,7 +81,10 @@ class ProfileManager:
         profile.throws.append(ThrowStats(
             peak_acceleration=peak_accel,
             drift_angle=drift_angle,
-            is_hit=is_hit
+            is_hit=is_hit,
+            trajectory_path=trajectory_path,
+            control_category=control_category,
+            drift_category=drift_category
         ))
         self.save_profile(profile)
         return profile
