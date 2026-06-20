@@ -6,11 +6,11 @@
       </div>
       <nav>
         <ul>
-          <li class="active">
+          <li :class="{ active: currentView === 'dashboard' }" @click="currentView = 'dashboard'">
             <span class="icon">📊</span>
             Dashboard
           </li>
-          <li>
+          <li :class="{ active: currentView === 'settings' }" @click="currentView = 'settings'">
             <span class="icon">⚙️</span>
             Settings
           </li>
@@ -34,10 +34,12 @@
         </div>
       </header>
       
-      <div class="dashboard-grid">
+      <div v-if="currentView === 'dashboard'" class="dashboard-grid">
         <Dashboard :user-profile="userProfile" :latest-throw="latestThrow" class="dashboard-stats" />
         <Throw3DViewer :latest-trajectory="latestThrow?.trajectory" class="dashboard-3d" />
       </div>
+      
+      <Settings v-else-if="currentView === 'settings'" />
     </main>
   </div>
 </template>
@@ -46,10 +48,12 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import Dashboard from './components/Dashboard.vue';
 import Throw3DViewer from './components/Throw3DViewer.vue';
+import Settings from './components/Settings.vue';
 import { fetchUserProfile } from './services/api';
 import { connectMqtt, disconnectMqtt } from './services/mqttClient';
 
 const selectedUser = ref('player1');
+const currentView = ref('dashboard');
 const userProfile = ref(null);
 const latestThrow = ref(null);
 const mqttConnected = ref(false);
