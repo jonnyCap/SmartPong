@@ -19,7 +19,7 @@
 static const char *TAG = "app_main";
 
 static m5stickc_plus_t m5_device;
-static app_display_snapshot_t display_snapshot = {0};
+app_display_snapshot_t display_snapshot = {0};
 
 static void display_task(void *arg)
 {
@@ -47,28 +47,14 @@ static void display_task(void *arg)
 #define BUTTON_HIT_GPIO 37 // Commonly Button A on M5StickC
 #define BUTTON_MISS_GPIO 39 // Commonly Button B on M5StickC
 
-static void IRAM_ATTR gpio_isr_handler(void* arg)
-{
-    uint32_t gpio_num = (uint32_t) arg;
-    if (gpio_num == BUTTON_HIT_GPIO) {
-        confirm_throw_result(true);
-    } else if (gpio_num == BUTTON_MISS_GPIO) {
-        confirm_throw_result(false);
-    }
-}
-
 static void configure_buttons(void)
 {
     gpio_config_t io_conf = {};
-    io_conf.intr_type = GPIO_INTR_NEGEDGE;
+    io_conf.intr_type = GPIO_INTR_DISABLE;
     io_conf.pin_bit_mask = (1ULL<<BUTTON_HIT_GPIO) | (1ULL<<BUTTON_MISS_GPIO);
     io_conf.mode = GPIO_MODE_INPUT;
-    io_conf.pull_up_en = 1;
+    io_conf.pull_up_en = 0;
     gpio_config(&io_conf);
-
-    gpio_install_isr_service(0);
-    gpio_isr_handler_add((gpio_num_t)BUTTON_HIT_GPIO, gpio_isr_handler, (void*) BUTTON_HIT_GPIO);
-    gpio_isr_handler_add((gpio_num_t)BUTTON_MISS_GPIO, gpio_isr_handler, (void*) BUTTON_MISS_GPIO);
 }
 
 void app_main(void)

@@ -347,31 +347,11 @@ static void framebuffer_draw_badge(m5stickc_plus_t *device,
 
 static void framebuffer_draw_progress(m5stickc_plus_t *device, const app_display_snapshot_t *snapshot)
 {
-    int x = 12;
     int y = 126;
-    int width = 111;
-    int fill = 0;
     char line[24] = {0};
 
-    framebuffer_fill_rect(device, x, y, width, 10, APP_COLOR_TRACK);
-    framebuffer_draw_outline_rect(device, x, y, width, 10, APP_COLOR_TEXT_DIM);
-
-    if (snapshot->max_samples > 0) {
-        fill = (int)(((uint64_t)snapshot->sample_count * (uint64_t)(width - 2)) / snapshot->max_samples);
-    }
-    if (fill > 0) {
-        framebuffer_fill_rect(device,
-                              x + 1,
-                              y + 1,
-                              fill,
-                              8,
-                              snapshot->session_limit_reached ? APP_COLOR_RECORD : APP_COLOR_ACCENT);
-    }
-
-    snprintf(line, sizeof(line), "%lu/%lu",
-             (unsigned long)snapshot->sample_count,
-             (unsigned long)snapshot->max_samples);
-    framebuffer_draw_centered_text(device, y + 14, line, 1, APP_COLOR_TEXT);
+    snprintf(line, sizeof(line), "THROWS: %lu", (unsigned long)snapshot->sample_count);
+    framebuffer_draw_centered_text(device, y, line, 2, APP_COLOR_TEXT);
 }
 
 static void framebuffer_draw_axis_meter(m5stickc_plus_t *device,
@@ -409,12 +389,8 @@ static void framebuffer_draw_axis_meter(m5stickc_plus_t *device,
     }
 }
 
-static void framebuffer_draw_timer_card(m5stickc_plus_t *device, const app_display_snapshot_t *snapshot)
+static void framebuffer_draw_status_card(m5stickc_plus_t *device, const app_display_snapshot_t *snapshot)
 {
-    char timer_line[16] = {0};
-    uint32_t minutes = snapshot->elapsed_ms / 60000U;
-    uint32_t seconds = (snapshot->elapsed_ms / 1000U) % 60U;
-    uint32_t tenths = (snapshot->elapsed_ms / 100U) % 10U;
     uint16_t state_color = APP_COLOR_ACCENT;
     int card_x = 6;
     int card_y = 62;
@@ -437,12 +413,7 @@ static void framebuffer_draw_timer_card(m5stickc_plus_t *device, const app_displ
     framebuffer_draw_outline_rect(device, safe_x, 68, safe_width, 14, APP_COLOR_TEXT);
     framebuffer_draw_centered_text_in_rect(device, safe_x, 72, safe_width, snapshot->status_line, 1, APP_COLOR_TEXT);
 
-    snprintf(timer_line, sizeof(timer_line), "%02lu:%02lu.%01lu",
-             (unsigned long)minutes,
-             (unsigned long)seconds,
-             (unsigned long)tenths);
-    framebuffer_draw_centered_text_in_rect(device, safe_x, 88, safe_width, timer_line, 2, APP_COLOR_TEXT);
-    framebuffer_draw_centered_text_in_rect(device, safe_x, 108, safe_width, snapshot->detail_line, 1, APP_COLOR_TEXT_DIM);
+    framebuffer_draw_centered_text_in_rect(device, safe_x, 98, safe_width, snapshot->detail_line, 1, APP_COLOR_TEXT_DIM);
 }
 
 esp_err_t m5stickc_plus_init(m5stickc_plus_t *device)
@@ -510,30 +481,41 @@ esp_err_t m5stickc_plus_render_status(m5stickc_plus_t *device, const app_display
     ESP_RETURN_ON_FALSE(device->display_ready, ESP_ERR_INVALID_STATE, TAG, "display not initialized");
 
     framebuffer_fill(device, APP_COLOR_BACKGROUND);
-    framebuffer_fill_rect(device, 0, 0, M5STICKC_PLUS_LCD_H_RES, 30, APP_COLOR_HEADER);
-    framebuffer_draw_centered_text(device, 8, "M1 RECORDER", 2, APP_COLOR_TEXT);
 
-    framebuffer_draw_badge(device, 8, 38, 54, snapshot->wifi_connected ? "WIFI OK" : "WIFI WAIT", snapshot->wifi_connected, APP_COLOR_GOOD);
-    framebuffer_draw_badge(device, 73, 38, 54, snapshot->tcp_connected ? "TCP OK" : "TCP WAIT", snapshot->tcp_connected, APP_COLOR_ACCENT);
-
-    framebuffer_draw_timer_card(device, snapshot);
-    framebuffer_draw_progress(device, snapshot);
-
-    framebuffer_fill_rect(device, 6, 148, M5STICKC_PLUS_LCD_H_RES - 12, 62, APP_COLOR_PANEL_ALT);
-    framebuffer_draw_outline_rect(device, 6, 148, M5STICKC_PLUS_LCD_H_RES - 12, 62, APP_COLOR_TEXT_DIM);
-    framebuffer_draw_axis_meter(device, 156, "AX", snapshot->ax_g, APP_COLOR_ACCENT);
-    framebuffer_draw_axis_meter(device, 176, "AY", snapshot->ay_g, APP_COLOR_GOOD);
-    framebuffer_draw_axis_meter(device, 196, "AZ", snapshot->az_g, APP_COLOR_RECORD);
-
-    snprintf(server_line, sizeof(server_line), "%s", snapshot->server_message[0] != '\0' ? snapshot->server_message : "NO MESSAGE");
-    framebuffer_draw_centered_text(device, 218, server_line, 1, APP_COLOR_TEXT);
-
-    if (snapshot->wifi_connected) {
-        snprintf(line, sizeof(line), "%s:%u", snapshot->server_host, snapshot->server_port);
+    if (snapshot->recorder_state == APP_RECORDER_STATE_RECORDING) {
+        // Draw a HUGE popup for feedback!
+        framebuffer_fill_rect(device, 0, 0, M5STICKC_PLUS_LCD_H_RES, M5STICKC_PLUS_LCD_V_RES, 0x0000);
+        framebuffer_draw_centered_text(device, 60, "THROW DETECTED", 2, APP_COLOR_TEXT);
+        framebuffer_draw_centered_text(device, 110, "A: HIT (1x PRESS)", 1, APP_COLOR_TEXT);
+        framebuffer_draw_centered_text(device, 130, "A: MISS (2x PRESS)", 1, APP_COLOR_TEXT);
+        framebuffer_draw_centered_text(device, 160, "B (SIDE): MISS", 1, APP_COLOR_TEXT);
+        framebuffer_draw_centered_text(device, 200, "(Timeout in 10s)", 1, APP_COLOR_TEXT_DIM);
     } else {
-        snprintf(line, sizeof(line), "%s", snapshot->server_host);
+        framebuffer_fill_rect(device, 0, 0, M5STICKC_PLUS_LCD_H_RES, 30, APP_COLOR_HEADER);
+        framebuffer_draw_centered_text(device, 8, "SMART PONG", 2, APP_COLOR_TEXT);
+
+        framebuffer_draw_badge(device, 8, 38, 54, snapshot->wifi_connected ? "WIFI OK" : "WIFI WAIT", snapshot->wifi_connected, APP_COLOR_GOOD);
+        framebuffer_draw_badge(device, 73, 38, 54, snapshot->tcp_connected ? "TCP OK" : "TCP WAIT", snapshot->tcp_connected, APP_COLOR_ACCENT);
+
+        framebuffer_draw_status_card(device, snapshot);
+        framebuffer_draw_progress(device, snapshot);
+
+        framebuffer_fill_rect(device, 6, 148, M5STICKC_PLUS_LCD_H_RES - 12, 62, APP_COLOR_PANEL_ALT);
+        framebuffer_draw_outline_rect(device, 6, 148, M5STICKC_PLUS_LCD_H_RES - 12, 62, APP_COLOR_TEXT_DIM);
+        framebuffer_draw_axis_meter(device, 156, "AX", snapshot->ax_g, APP_COLOR_ACCENT);
+        framebuffer_draw_axis_meter(device, 176, "AY", snapshot->ay_g, APP_COLOR_GOOD);
+        framebuffer_draw_axis_meter(device, 196, "AZ", snapshot->az_g, APP_COLOR_RECORD);
+
+        snprintf(server_line, sizeof(server_line), "%s", snapshot->server_message[0] != '\0' ? snapshot->server_message : "NO MESSAGE");
+        framebuffer_draw_centered_text(device, 218, server_line, 1, APP_COLOR_TEXT);
+
+        if (snapshot->wifi_connected) {
+            snprintf(line, sizeof(line), "%s:%u", snapshot->server_host, snapshot->server_port);
+        } else {
+            snprintf(line, sizeof(line), "%s", snapshot->server_host);
+        }
+        framebuffer_draw_centered_text(device, 230, line, 1, APP_COLOR_TEXT_DIM);
     }
-    framebuffer_draw_centered_text(device, 230, line, 1, APP_COLOR_TEXT_DIM);
 
     return esp_lcd_panel_draw_bitmap(device->panel, 0, 0, M5STICKC_PLUS_LCD_H_RES, M5STICKC_PLUS_LCD_V_RES, device->framebuffer);
 }
