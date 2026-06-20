@@ -9,6 +9,10 @@
 
 #include "app_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct {
     i2c_master_bus_handle_t i2c_bus;
     i2c_master_dev_handle_t axp192_dev;
@@ -24,3 +28,7 @@ esp_err_t m5stickc_plus_init(m5stickc_plus_t *device);
 esp_err_t m5stickc_plus_read_accel_g(m5stickc_plus_t *device, float *ax_g, float *ay_g, float *az_g);
 esp_err_t m5stickc_plus_read_gyro_dps(m5stickc_plus_t *device, float *gx_dps, float *gy_dps, float *gz_dps);
 esp_err_t m5stickc_plus_render_status(m5stickc_plus_t *device, const app_display_snapshot_t *snapshot);
+
+#ifdef __cplusplus
+}
+#endif
