@@ -1,5 +1,7 @@
+import os
 from typing import Dict, List, Optional
 from pydantic import BaseModel
+from pymongo import MongoClient
 
 class ThrowStats(BaseModel):
     peak_acceleration: float
@@ -46,13 +48,23 @@ class UserProfile(BaseModel):
 
 class ProfileManager:
     def __init__(self):
-        # In-memory database for prototyping
-        self.profiles: Dict[str, UserProfile] = {}
+        mongo_uri = os.environ.get("MONGO_URI", "mongodb://mongodb:27017/")
+        self.client = MongoClient(mongo_uri)
+        self.db = self.client.smartpong
+        self.collection = self.db.profiles
         
     def get_profile(self, user_id: str) -> UserProfile:
-        if user_id not in self.profiles:
-            self.profiles[user_id] = UserProfile(user_id=user_id)
-        return self.profiles[user_id]
+        doc = self.collection.find_one({"user_id": user_id})
+        if not doc:
+            return UserProfile(user_id=user_id)
+        return UserProfile(**doc)
+
+    def save_profile(self, profile: UserProfile):
+        self.collection.update_one(
+            {"user_id": profile.user_id},
+            {"$set": profile.model_dump()},
+            upsert=True
+        )
         
     def add_throw(self, user_id: str, peak_accel: float, drift_angle: float, is_hit: bool):
         profile = self.get_profile(user_id)
@@ -65,6 +77,7 @@ class ProfileManager:
             drift_angle=drift_angle,
             is_hit=is_hit
         ))
+        self.save_profile(profile)
         return profile
         
     def categorize_throw_control(self, user_id: str, peak_accel: float) -> str:
