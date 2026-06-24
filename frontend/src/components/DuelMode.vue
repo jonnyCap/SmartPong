@@ -4,7 +4,7 @@
     <div class="duel-pickers">
       <div class="picker picker-a">
         <span class="hud-label">Player A</span>
-        <PlayerSelect v-model="playerA" :users="users" accent="var(--player-a)" placeholder="Spieler A" />
+        <PlayerSelect v-model="playerA" :users="users" accent="var(--player-a)" placeholder="Player A" />
       </div>
 
       <div class="vs-col">
@@ -15,7 +15,7 @@
           class="reset-btn"
           :class="resetPhase"
           :disabled="resetPhase === 'working'"
-          :title="'Setzt die Stats beider Spieler serverseitig zurück'"
+          title="Resets both player stats on the server"
           @click="onResetClick"
         >
           <span class="reset-ico">⟲</span>
@@ -25,7 +25,7 @@
 
       <div class="picker picker-b">
         <span class="hud-label">Player B</span>
-        <PlayerSelect v-model="playerB" :users="users" accent="var(--player-b)" placeholder="Spieler B" />
+        <PlayerSelect v-model="playerB" :users="users" accent="var(--player-b)" placeholder="Player B" />
       </div>
     </div>
 
@@ -133,6 +133,7 @@ import ThrowDetail from './ThrowDetail.vue';
 import CompareRow from './CompareRow.vue';
 import { fetchUserProfile, resetProfile } from '../services/api';
 import { connectMqtt, onResult } from '../services/mqttClient';
+import { peakOf, driftOf } from '../services/prefs';
 
 const props = defineProps({
   users: { type: Array, default: () => [] },
@@ -150,6 +151,7 @@ const flashB = ref(false);
 let unsubResult = null;
 let flashTimerA = null;
 let flashTimerB = null;
+let pollTimer = null;
 
 const emptyStats = { hitRate: 0, avgAccel: 0, avgDrift: 0, count: 0, hits: 0, misses: 0 };
 
@@ -158,8 +160,8 @@ const computeStats = (profile) => {
   const throws = profile.throws;
   const count = throws.length;
   const hits = throws.filter((t) => t.is_hit).length;
-  const avgAccel = throws.reduce((s, t) => s + (t.peak_acceleration || 0), 0) / count;
-  const avgDrift = throws.reduce((s, t) => s + (t.drift_angle || 0), 0) / count;
+  const avgAccel = throws.reduce((s, t) => s + peakOf(t), 0) / count;
+  const avgDrift = throws.reduce((s, t) => s + driftOf(t), 0) / count;
   return { hitRate: (hits / count) * 100, avgAccel, avgDrift, count, hits, misses: count - hits };
 };
 
@@ -219,8 +221,8 @@ const resetPhase = ref('idle'); // idle | confirm | working
 let confirmTimer = null;
 
 const resetLabel = computed(() => {
-  if (resetPhase.value === 'working') return 'Reset…';
-  if (resetPhase.value === 'confirm') return 'Wirklich? Bestätigen';
+  if (resetPhase.value === 'working') return 'Resetting…';
+  if (resetPhase.value === 'confirm') return 'Confirm reset?';
   return 'Reset Stats';
 });
 
@@ -273,6 +275,10 @@ onMounted(() => {
       triggerFlash('b');
     }
   });
+
+  // Robustness fallback: keep both profiles fresh even if an MQTT result is
+  // missed (e.g. a brief WebSocket drop). MQTT still drives the instant flash.
+  pollTimer = setInterval(() => { loadA(); loadB(); }, 3500);
 });
 
 onBeforeUnmount(() => {
@@ -280,6 +286,7 @@ onBeforeUnmount(() => {
   clearTimeout(flashTimerA);
   clearTimeout(flashTimerB);
   clearTimeout(confirmTimer);
+  clearInterval(pollTimer);
 });
 </script>
 

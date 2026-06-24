@@ -4,8 +4,9 @@ from fastapi_mqtt import FastMQTT, MQTTConfig
 from pydantic import BaseModel
 import json
 import time
+import os
 
-from metrics import calculate_peak_acceleration, calculate_drift, calculate_trajectory
+from metrics import analyze_throw
 from profiles import profile_manager
 
 app = FastAPI(title="SmartPong Backend")
@@ -18,11 +19,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# We use test.mosquitto.org as a public broker for prototyping.
-# The ESP32 firmware config should match this broker and these topics.
+# Local Mosquitto broker (see docker-compose / mosquitto.conf). Override with
+# MQTT_HOST/MQTT_PORT; defaults to the "mosquitto" service on the compose network.
+# The ESP32 firmware must publish to the same broker (use the Mac's LAN IP there).
 mqtt_config = MQTTConfig(
-    host="test.mosquitto.org",
-    port=1883,
+    host=os.environ.get("MQTT_HOST", "mosquitto"),
+    port=int(os.environ.get("MQTT_PORT", "1883")),
     keepalive=60,
 )
 
@@ -55,18 +57,22 @@ async def message(client, topic, payload, qos, properties):
             # Stamp the moment we received this throw (used for "last seen" + live feed)
             received_at = time.time()
 
-            # 1. Calculate Metrics
-            peak_accel = calculate_peak_acceleration(payload_obj.ax, payload_obj.ay, payload_obj.az)
-            drift_angle = calculate_drift(payload_obj.ax, payload_obj.ay, payload_obj.az)
-            trajectory = calculate_trajectory(
+            # 1. Analyze the throw once (Madgwick fusion). Returns throw-only
+            #    metrics (wind-up excluded) plus full-window variants.
+            m = analyze_throw(
                 payload_obj.ax, payload_obj.ay, payload_obj.az,
                 payload_obj.gx, payload_obj.gy, payload_obj.gz
             )
-            
-            # 2. Categorize based on user profile
+            peak_accel, drift_angle = m["peak"], m["drift"]
+            peak_full, drift_full = m["peak_full"], m["drift_full"]
+            trajectory = m["trajectory"]
+
+            # 2. Categorize against the user profile (throw-only + full-window)
             control_category = profile_manager.categorize_throw_control(payload_obj.user_id, peak_accel)
             drift_category = profile_manager.categorize_throw_drift(payload_obj.user_id, drift_angle)
-            
+            control_category_full = profile_manager.categorize_throw_control(payload_obj.user_id, peak_full)
+            drift_category_full = profile_manager.categorize_throw_drift(payload_obj.user_id, drift_full)
+
             # 3. Add to profile and update stats
             profile = profile_manager.add_throw(
                 user_id=payload_obj.user_id,
@@ -76,7 +82,11 @@ async def message(client, topic, payload, qos, properties):
                 trajectory_path=trajectory.get("path", []),
                 control_category=control_category,
                 drift_category=drift_category,
-                timestamp=received_at
+                timestamp=received_at,
+                peak_accel_full=peak_full,
+                drift_angle_full=drift_full,
+                control_category_full=control_category_full,
+                drift_category_full=drift_category_full,
             )
 
             # 4. Return results to the watch
@@ -87,6 +97,10 @@ async def message(client, topic, payload, qos, properties):
                 "control_category": control_category,
                 "drift_angle": drift_angle,
                 "drift_category": drift_category,
+                "peak_acceleration_full": peak_full,
+                "drift_angle_full": drift_full,
+                "control_category_full": control_category_full,
+                "drift_category_full": drift_category_full,
                 "trajectory": trajectory,
                 "timestamp": received_at,
                 "user_total_throws": profile.total_throws,

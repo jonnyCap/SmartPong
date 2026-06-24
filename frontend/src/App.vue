@@ -32,7 +32,7 @@
           v-model="selectedUser"
           :users="availableUsers"
           direction="up"
-          placeholder="Warte auf Daten…"
+          placeholder="Waiting for data…"
         />
       </div>
     </aside>
@@ -44,6 +44,17 @@
             <h2 class="display">{{ headerTitle }}</h2>
             <span class="badge" :class="{ live: mqttConnected }">{{ mqttConnected ? 'LIVE' : 'OFF' }}</span>
           </div>
+
+          <button
+            v-if="currentView !== 'settings'"
+            class="windup-toggle"
+            :class="{ excluded: excludeWindup }"
+            @click="excludeWindup = !excludeWindup"
+            title="Measure peak / drift / quality on the throw only (wind-up excluded) or over the full raw window"
+          >
+            <span class="hud-label">Wind-up</span>
+            <span class="wt-state mono">{{ excludeWindup ? 'EXCLUDED' : 'INCLUDED' }}</span>
+          </button>
 
           <div v-if="currentView === 'dashboard'" class="view-select-wrap">
             <span class="hud-label">View</span>
@@ -102,6 +113,7 @@ import DuelMode from './components/DuelMode.vue';
 import PlayerSelect from './components/PlayerSelect.vue';
 import { fetchUserProfile, fetchUsers } from './services/api';
 import { connectMqtt, onResult, onStatus, disconnectMqtt } from './services/mqttClient';
+import { excludeWindup } from './services/prefs';
 
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: '◈' },
@@ -115,7 +127,7 @@ const userProfile = ref(null);
 const latestThrow = ref(null);
 const mqttConnected = ref(false);
 const availableUsers = ref([]); // array of summary objects
-const viewMode = ref('all');
+const viewMode = ref('latest');
 
 let unsubResult = null;
 let unsubStatus = null;
@@ -157,8 +169,9 @@ onMounted(() => {
   loadUsers();
   loadProfile();
 
-  // Refresh users list periodically (keeps "last seen" fresh).
-  setInterval(loadUsers, 5000);
+  // Refresh the player list + current profile periodically. Keeps "last seen"
+  // and the dashboard stats fresh even if an MQTT result is ever missed.
+  setInterval(() => { loadUsers(); loadProfile(); }, 5000);
 
   connectMqtt();
   unsubStatus = onStatus((connected) => { mqttConnected.value = connected; });
@@ -367,6 +380,32 @@ nav li.active .icon {
   background: var(--bg-panel-solid);
   color: var(--text-main);
 }
+
+.windup-toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 0.35rem 0.7rem;
+  border-radius: 9px;
+  cursor: pointer;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-color);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.windup-toggle:hover { border-color: var(--border-bright); }
+.windup-toggle .hud-label { font-size: 0.55rem; }
+.wt-state {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+.windup-toggle.excluded {
+  border-color: color-mix(in srgb, var(--hit) 40%, transparent);
+  box-shadow: 0 0 14px -6px var(--hit-glow);
+}
+.windup-toggle.excluded .wt-state { color: var(--hit); }
 
 .status-indicator {
   display: flex;

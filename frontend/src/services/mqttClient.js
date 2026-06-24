@@ -1,6 +1,9 @@
 import mqtt from 'mqtt';
 
-const MQTT_BROKER = 'wss://test.mosquitto.org:8081'; // Using WebSocket Secure
+// Local Mosquitto over WebSocket (host port 9101 -> broker's 9001). Adapts to
+// wherever the dashboard is served from: ws://localhost:9101 on the Mac,
+// ws://<mac-ip>:9101 from another device. Override with VITE_MQTT_URL if needed.
+export const MQTT_BROKER = import.meta.env.VITE_MQTT_URL || `ws://${window.location.hostname}:9101`;
 const TOPIC_RESULTS = '/smartpong/throws/results';
 
 let client = null;

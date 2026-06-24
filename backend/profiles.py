@@ -14,6 +14,12 @@ class ThrowStats(BaseModel):
     # Unix epoch seconds, stamped by the backend when the throw is received.
     # Defaults to 0.0 for throws recorded before timestamps were tracked.
     timestamp: float = 0.0
+    # Full-window variants (wind-up included) for the "include wind-up" toggle.
+    # The primary fields above are throw-only (wind-up excluded).
+    peak_acceleration_full: float = 0.0
+    drift_angle_full: float = 0.0
+    control_category_full: str = ""
+    drift_category_full: str = ""
 
 class UserProfile(BaseModel):
     user_id: str
@@ -105,7 +111,7 @@ class ProfileManager:
         self.save_profile(empty)
         return empty
         
-    def add_throw(self, user_id: str, peak_accel: float, drift_angle: float, is_hit: bool, trajectory_path: List[List[float]], control_category: str, drift_category: str, timestamp: Optional[float] = None):
+    def add_throw(self, user_id: str, peak_accel: float, drift_angle: float, is_hit: bool, trajectory_path: List[List[float]], control_category: str, drift_category: str, timestamp: Optional[float] = None, peak_accel_full: float = 0.0, drift_angle_full: float = 0.0, control_category_full: str = "", drift_category_full: str = ""):
         profile = self.get_profile(user_id)
         profile.total_throws += 1
         if is_hit:
@@ -118,7 +124,11 @@ class ProfileManager:
             trajectory_path=trajectory_path,
             control_category=control_category,
             drift_category=drift_category,
-            timestamp=timestamp if timestamp is not None else time.time()
+            timestamp=timestamp if timestamp is not None else time.time(),
+            peak_acceleration_full=peak_accel_full,
+            drift_angle_full=drift_angle_full,
+            control_category_full=control_category_full,
+            drift_category_full=drift_category_full,
         ))
         self.save_profile(profile)
         return profile
@@ -126,10 +136,13 @@ class ProfileManager:
     def categorize_throw_control(self, user_id: str, peak_accel: float) -> str:
         profile = self.get_profile(user_id)
         if len(profile.throws) < 5:
-            # Fallback thresholds from training set (approximations based on classification notebook)
-            controlled_threshold = 2.0
-            uncontrolled_threshold = 4.0
+            # Fallback thresholds (peak g). Real throws peak around 8-12 g, so a
+            # normal hard throw should land "Moderately Controlled", not "Uncontrolled".
+            controlled_threshold = 7.0
+            uncontrolled_threshold = 12.0
         else:
+            # Once enough data exists, grade each throw relative to the player's
+            # own distribution (consistency), not an absolute g value.
             mean = profile.avg_peak_acceleration
             std = profile.std_peak_acceleration
             controlled_threshold = mean - 0.5 * std
@@ -145,9 +158,10 @@ class ProfileManager:
     def categorize_throw_drift(self, user_id: str, drift_angle: float) -> str:
         profile = self.get_profile(user_id)
         if len(profile.throws) < 5:
-            # Fallback thresholds from training set (approximations based on classification notebook)
-            low_threshold = 15.0
-            high_threshold = 30.0
+            # Fallback thresholds for the path-straightness drift (degrees, ~0-45).
+            # Straight throws sit near 0-10 deg; clearly curved ones above ~25.
+            low_threshold = 12.0
+            high_threshold = 25.0
         else:
             mean = profile.avg_drift_angle
             std = profile.std_drift_angle

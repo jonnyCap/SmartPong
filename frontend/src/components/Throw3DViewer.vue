@@ -11,7 +11,7 @@
     <div v-if="!currentPathData || currentPathData.length === 0" class="overlay">
       <div class="overlay-inner">
         <div class="radar"></div>
-        <p class="mono">Warte auf Wurfdaten…</p>
+        <p class="mono">Waiting for throw data…</p>
       </div>
     </div>
   </div>
@@ -36,8 +36,15 @@ let throwTube, throwGlow, ballMesh, ballLight, gridHelper;
 let moveBallAnimationId;
 
 const currentPathData = computed(() => {
-  if (props.viewMode === 'latest' && props.latestTrajectory && props.latestTrajectory.path) {
-    return props.latestTrajectory.path;
+  if (props.viewMode === 'latest') {
+    // Prefer the live throw; otherwise fall back to the most recent stored
+    // throw so the viewer isn't empty on load / after a page refresh.
+    if (props.latestTrajectory && props.latestTrajectory.path && props.latestTrajectory.path.length) {
+      return props.latestTrajectory.path;
+    }
+    const throws = props.userProfile?.throws;
+    if (throws && throws.length) return throws[throws.length - 1].trajectory_path || [];
+    return [];
   }
   if (!props.userProfile || !props.userProfile.throws || props.userProfile.throws.length === 0) {
     return [];
@@ -200,16 +207,31 @@ const updateTrajectory = (pathData) => {
     if (ballLight) ballLight.color.copy(color);
   }
 
-  let progress = 0;
+  // Real-speed playback: the path samples are uniform in time (dt apart), so we
+  // step the indicator through the actual points at a constant time-per-sample.
+  // The ball then moves fast through the throw's acceleration spike and slows at
+  // the ends — the real velocity profile — instead of a constant glide.
+  const SLOWDOWN = 2.5;  // play 2.5x slower than real time so it's watchable
+  const PAUSE_S = 0.6;   // hold at the end before replaying
+  const sampleDt = (props.viewMode === 'latest' && props.latestTrajectory?.dt)
+    ? props.latestTrajectory.dt
+    : 0.02;
+  const segDur = sampleDt * SLOWDOWN;
+  const total = (points.length - 1) * segDur;
+
+  let startT = performance.now() / 1000;
   const moveBall = () => {
-    progress += 0.012;
-    if (progress <= 1) {
-      ballMesh.position.copy(curve.getPointAt(progress));
-      moveBallAnimationId = requestAnimationFrame(moveBall);
+    const now = performance.now() / 1000;
+    let e = now - startT;
+    if (e >= total + PAUSE_S) { startT = now; e = 0; }
+    if (e >= total) {
+      ballMesh.position.copy(points[points.length - 1]);  // hold at end during pause
     } else {
-      progress = 0;
-      moveBallAnimationId = requestAnimationFrame(moveBall);
+      const f = e / segDur;
+      const i = Math.min(points.length - 2, Math.floor(f));
+      ballMesh.position.copy(points[i]).lerp(points[i + 1], f - i);
     }
+    moveBallAnimationId = requestAnimationFrame(moveBall);
   };
   moveBall();
 };

@@ -8,7 +8,7 @@
 
       <div class="settings-section">
         <h4>Accent Theme</h4>
-        <p class="desc">Färbt das gesamte HUD um — Glow, Borders und Trajektorien.</p>
+        <p class="desc">Recolors the entire HUD — glow, borders and trajectories.</p>
 
         <div class="theme-grid">
           <button
@@ -27,10 +27,10 @@
 
       <div class="settings-section">
         <h4>Connection</h4>
-        <p class="desc">MQTT Broker für Echtzeit-Würfe (read-only).</p>
+        <p class="desc">MQTT broker for real-time throws (read-only).</p>
         <div class="input-group">
           <div class="conn-field mono">
-            <span class="conn-dot"></span>{{ brokerUrl }}
+            <span class="conn-dot" :class="{ offline: !connected }"></span>{{ brokerUrl }}
           </div>
           <button class="btn-secondary" disabled>LOCKED</button>
         </div>
@@ -38,7 +38,7 @@
 
       <div class="settings-section danger-zone">
         <h4 class="danger-title">Data Management</h4>
-        <p class="desc">Lokale Session-Statistiken zurücksetzen.</p>
+        <p class="desc">Reset local session statistics.</p>
         <button class="btn-danger" @click="handleReset">Reset Profile Data</button>
         <transition name="fade">
           <p v-if="resetMessage" class="feedback-msg mono">{{ resetMessage }}</p>
@@ -49,7 +49,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { MQTT_BROKER, onStatus } from '../services/mqttClient';
 
 const themes = [
   { name: 'cyan', label: 'CYAN', color: '#22d3ee', color2: '#ff36d7', rgb: '34, 211, 238' },
@@ -60,8 +61,13 @@ const themes = [
 ];
 
 const currentAccent = ref('cyan');
-const brokerUrl = ref('wss://test.mosquitto.org:8081');
+const brokerUrl = ref(MQTT_BROKER);
+const connected = ref(false);
 const resetMessage = ref('');
+
+let unsubStatus = null;
+onMounted(() => { unsubStatus = onStatus((c) => { connected.value = c; }); });
+onBeforeUnmount(() => { if (unsubStatus) unsubStatus(); });
 
 const applyTheme = (t) => {
   currentAccent.value = t.name;
@@ -73,7 +79,7 @@ const applyTheme = (t) => {
 };
 
 const handleReset = () => {
-  resetMessage.value = '✓ Profildaten für die aktuelle Session geleert.';
+  resetMessage.value = '✓ Profile data cleared for the current session.';
   setTimeout(() => { resetMessage.value = ''; }, 3000);
 };
 </script>
@@ -166,6 +172,10 @@ h4 {
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--hit);
   box-shadow: 0 0 10px var(--hit-glow);
+}
+.conn-dot.offline {
+  background: var(--miss);
+  box-shadow: 0 0 10px var(--miss-glow);
 }
 .btn-secondary {
   padding: 0.75rem 1.4rem;

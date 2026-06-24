@@ -2,10 +2,23 @@
 #include <stdio.h>
 #include <string.h>
 #include "esp_log.h"
+#include "esp_err.h"
+#include "esp_netif.h"
+#include "mdns.h"
 #include "cJSON.h"
 
 static const char *TAG = "mqtt_logic";
 static esp_mqtt_client_handle_t client = NULL;
+
+// The broker runs on the Mac. We resolve it by its Bonjour/mDNS name so the
+// demo keeps working even if the Mac's DHCP IP changes (no re-flash needed).
+// MDNS_BROKER_HOST is the Mac's LocalHostName (System Settings > Sharing, or
+// `scutil --get LocalHostName`) WITHOUT the ".local" suffix.
+#define MDNS_BROKER_HOST  "smartpong-broker"
+// Fallback if mDNS can't resolve (e.g. a hotspot/AP that blocks multicast):
+// the Mac's current LAN IP. Update with `ipconfig getifaddr en0` if needed.
+#define MQTT_FALLBACK_URI "mqtt://192.168.1.100"
+#define MDNS_RESOLVE_TIMEOUT_MS 4000
 
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
@@ -30,10 +43,38 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     }
 }
 
+// Resolve the broker via mDNS (<MDNS_BROKER_HOST>.local), falling back to a
+// hardcoded IP. Writes the chosen "mqtt://host" into out_uri.
+static void resolve_broker_uri(char *out_uri, size_t out_len)
+{
+    snprintf(out_uri, out_len, "%s", MQTT_FALLBACK_URI);
+
+    if (mdns_init() != ESP_OK) {
+        ESP_LOGW(TAG, "mdns_init failed; using fallback %s", MQTT_FALLBACK_URI);
+        return;
+    }
+
+    esp_ip4_addr_t addr = { .addr = 0 };
+    esp_err_t err = mdns_query_a(MDNS_BROKER_HOST, MDNS_RESOLVE_TIMEOUT_MS, &addr);
+    if (err == ESP_OK && addr.addr != 0) {
+        char ip[16];
+        esp_ip4addr_ntoa(&addr, ip, sizeof(ip));
+        snprintf(out_uri, out_len, "mqtt://%s", ip);
+        ESP_LOGI(TAG, "mDNS resolved %s.local -> %s", MDNS_BROKER_HOST, ip);
+    } else {
+        ESP_LOGW(TAG, "mDNS resolve of %s.local failed (%s); using fallback %s",
+                 MDNS_BROKER_HOST, esp_err_to_name(err), MQTT_FALLBACK_URI);
+    }
+}
+
 void mqtt_app_start(void)
 {
+    static char broker_uri[48];
+    resolve_broker_uri(broker_uri, sizeof(broker_uri));
+    ESP_LOGI(TAG, "Connecting to MQTT broker: %s", broker_uri);
+
     esp_mqtt_client_config_t mqtt_cfg = {
-        .broker.address.uri = "mqtt://test.mosquitto.org",
+        .broker.address.uri = broker_uri,
     };
 
     client = esp_mqtt_client_init(&mqtt_cfg);

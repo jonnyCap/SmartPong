@@ -43,33 +43,20 @@
         </div>
       </div>
     </div>
-    <div v-else-if="userProfile" class="loading">Keine Würfe für diese Auswahl.</div>
-    <div v-else class="loading">Lade Profildaten…</div>
+    <div v-else-if="userProfile" class="loading">No throws for this selection.</div>
+    <div v-else class="loading">Loading profile data…</div>
 
     <div v-if="userProfile && filteredThrows.length > 0" class="quality-block">
-      <span class="hud-label">Control Quality</span>
-      <div class="tile-grid">
-        <div v-for="(pct, cat) in classPercentages.control" :key="cat" class="class-tile" :class="getColorClass(cat)">
-          <span class="tile-name">{{ cat }}</span>
-          <span class="tile-pct display">{{ pct }}</span>
-          <div class="tile-bar"><div class="tile-bar-fill" :style="{ width: pct }"></div></div>
-        </div>
-      </div>
-
-      <span class="hud-label">Drift Quality</span>
-      <div class="tile-grid">
-        <div v-for="(pct, cat) in classPercentages.drift" :key="cat" class="class-tile" :class="getColorClass(cat)">
-          <span class="tile-name">{{ cat }}</span>
-          <span class="tile-pct display">{{ pct }}</span>
-          <div class="tile-bar"><div class="tile-bar-fill" :style="{ width: pct }"></div></div>
-        </div>
-      </div>
+      <QualityMeter label="Control Quality" :segments="controlSegments" />
+      <QualityMeter label="Drift Quality" :segments="driftSegments" />
     </div>
   </div>
 </template>
 
 <script setup>
 import { defineProps, computed } from 'vue';
+import { peakOf, driftOf, controlOf, driftCatOf } from '../services/prefs';
+import QualityMeter from './QualityMeter.vue';
 
 const props = defineProps({
   userProfile: { type: Object, default: null },
@@ -116,28 +103,28 @@ const hitRate = computed(() => {
 
 const avgAccel = computed(() => {
   if (filteredThrows.value.length === 0) return 0;
-  return filteredThrows.value.reduce((sum, t) => sum + t.peak_acceleration, 0) / filteredThrows.value.length;
+  return filteredThrows.value.reduce((sum, t) => sum + peakOf(t), 0) / filteredThrows.value.length;
 });
 const minAccel = computed(() => {
   if (filteredThrows.value.length === 0) return 0;
-  return Math.min(...filteredThrows.value.map((t) => t.peak_acceleration));
+  return Math.min(...filteredThrows.value.map((t) => peakOf(t)));
 });
 const maxAccel = computed(() => {
   if (filteredThrows.value.length === 0) return 0;
-  return Math.max(...filteredThrows.value.map((t) => t.peak_acceleration));
+  return Math.max(...filteredThrows.value.map((t) => peakOf(t)));
 });
 
 const avgDrift = computed(() => {
   if (filteredThrows.value.length === 0) return 0;
-  return filteredThrows.value.reduce((sum, t) => sum + (t.drift_angle || 0), 0) / filteredThrows.value.length;
+  return filteredThrows.value.reduce((sum, t) => sum + driftOf(t), 0) / filteredThrows.value.length;
 });
 const minDrift = computed(() => {
   if (filteredThrows.value.length === 0) return 0;
-  return Math.min(...filteredThrows.value.map((t) => t.drift_angle || 0));
+  return Math.min(...filteredThrows.value.map((t) => driftOf(t)));
 });
 const maxDrift = computed(() => {
   if (filteredThrows.value.length === 0) return 0;
-  return Math.max(...filteredThrows.value.map((t) => t.drift_angle || 0));
+  return Math.max(...filteredThrows.value.map((t) => driftOf(t)));
 });
 
 const classPercentages = computed(() => {
@@ -154,8 +141,10 @@ const classPercentages = computed(() => {
   }
 
   throws.forEach((t) => {
-    if (t.control_category) control[t.control_category] = (control[t.control_category] || 0) + 1;
-    if (t.drift_category) drift[t.drift_category] = (drift[t.drift_category] || 0) + 1;
+    const c = controlOf(t);
+    const d = driftCatOf(t);
+    if (c) control[c] = (control[c] || 0) + 1;
+    if (d) drift[d] = (drift[d] || 0) + 1;
   });
 
   Object.keys(control).forEach((k) => (control[k] = ((control[k] / count) * 100).toFixed(1) + '%'));
@@ -164,12 +153,17 @@ const classPercentages = computed(() => {
   return { control, drift };
 });
 
-const getColorClass = (cat) => {
-  if (cat === 'Controlled' || cat === 'Low Drift') return 'tile-success';
-  if (cat === 'Moderately Controlled' || cat === 'Moderate Drift') return 'tile-warning';
-  if (cat === 'Uncontrolled' || cat === 'Strong Drift') return 'tile-danger';
-  return '';
-};
+const controlSegments = computed(() => [
+  { label: 'Controlled', pct: classPercentages.value.control['Controlled'], tone: 'good' },
+  { label: 'Moderate', pct: classPercentages.value.control['Moderately Controlled'], tone: 'mid' },
+  { label: 'Uncontrolled', pct: classPercentages.value.control['Uncontrolled'], tone: 'bad' },
+]);
+
+const driftSegments = computed(() => [
+  { label: 'Low', pct: classPercentages.value.drift['Low Drift'], tone: 'good' },
+  { label: 'Moderate', pct: classPercentages.value.drift['Moderate Drift'], tone: 'mid' },
+  { label: 'Strong', pct: classPercentages.value.drift['Strong Drift'], tone: 'bad' },
+]);
 </script>
 
 <style scoped>
@@ -281,46 +275,8 @@ const getColorClass = (cat) => {
 .value .unit { font-size: 0.9rem; color: var(--text-muted); }
 .subtext { font-size: 0.66rem; color: var(--text-dim); }
 
-/* ---- Quality tiles ---- */
-.quality-block { display: flex; flex-direction: column; gap: 0.7rem; }
-.quality-block .hud-label { margin-top: 0.3rem; }
-.tile-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.8rem;
-}
-.class-tile {
-  background: rgba(0, 0, 0, 0.25);
-  padding: 0.9rem 0.6rem 0.7rem;
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border-color);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
-  text-align: center;
-  gap: 0.5rem;
-}
-.class-tile:hover { transform: translateY(-3px); }
-.tile-name {
-  font-size: 0.62rem;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  min-height: 2.2em;
-  display: flex;
-  align-items: center;
-}
-.tile-pct { font-size: 1.5rem; font-weight: 700; }
-.tile-bar {
-  width: 100%;
-  height: 4px;
-  border-radius: 3px;
-  background: rgba(0, 0, 0, 0.5);
-  overflow: hidden;
-}
-.tile-bar-fill { height: 100%; transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+/* ---- Quality ---- */
+.quality-block { display: flex; flex-direction: column; gap: 1.4rem; margin-top: 0.2rem; }
 
 .loading {
   color: var(--text-dim);
@@ -330,18 +286,4 @@ const getColorClass = (cat) => {
   text-align: center;
 }
 
-.tile-success { border-color: rgba(47, 245, 184, 0.28); }
-.tile-success:hover { box-shadow: 0 8px 26px -16px var(--hit-glow); }
-.tile-success .tile-pct { color: var(--hit); text-shadow: 0 0 12px var(--hit-glow); }
-.tile-success .tile-bar-fill { background: var(--hit); box-shadow: 0 0 10px var(--hit-glow); }
-
-.tile-warning { border-color: rgba(255, 182, 39, 0.28); }
-.tile-warning:hover { box-shadow: 0 8px 26px -16px rgba(255, 182, 39, 0.5); }
-.tile-warning .tile-pct { color: var(--warn); text-shadow: 0 0 12px rgba(255, 182, 39, 0.5); }
-.tile-warning .tile-bar-fill { background: var(--warn); box-shadow: 0 0 10px rgba(255, 182, 39, 0.5); }
-
-.tile-danger { border-color: rgba(255, 59, 107, 0.28); }
-.tile-danger:hover { box-shadow: 0 8px 26px -16px var(--miss-glow); }
-.tile-danger .tile-pct { color: var(--miss); text-shadow: 0 0 12px var(--miss-glow); }
-.tile-danger .tile-bar-fill { background: var(--miss); box-shadow: 0 0 10px var(--miss-glow); }
 </style>

@@ -29,7 +29,7 @@
         role="listbox"
         ref="panel"
       >
-        <li v-if="users.length === 0" class="ps-empty mono">Warte auf Spielerdaten…</li>
+        <li v-if="users.length === 0" class="ps-empty mono">Waiting for player data…</li>
 
         <li
           v-for="(u, i) in users"
@@ -52,7 +52,7 @@
             <span class="ps-opt-bottom mono" :title="formatAbsolute(u.last_seen)">
               <span class="ps-opt-seen">{{ formatRelative(u.last_seen, nowMs) }}</span>
               <span class="ps-opt-sep">·</span>
-              <span class="ps-opt-count">{{ u.total_throws || 0 }} Würfe</span>
+              <span class="ps-opt-count">{{ u.total_throws || 0 }} throws</span>
             </span>
           </span>
           <span class="ps-opt-check" v-if="u.user_id === modelValue">◈</span>
@@ -69,7 +69,7 @@ import { formatRelative, formatAbsolute, isOnline } from '../services/time';
 const props = defineProps({
   modelValue: { type: String, default: '' },
   users: { type: Array, default: () => [] },
-  placeholder: { type: String, default: 'Spieler wählen' },
+  placeholder: { type: String, default: 'Select player' },
   direction: { type: String, default: 'down' }, // 'down' | 'up'
   accent: { type: String, default: '' },         // optional css color override
 });

@@ -6,27 +6,27 @@ export const formatRelative = (epochSeconds, nowMs = Date.now()) => {
   if (!epochSeconds) return '—';
   const diffSec = Math.max(0, Math.round(nowMs / 1000 - epochSeconds));
 
-  if (diffSec < 5) return 'gerade eben';
-  if (diffSec < 60) return `vor ${diffSec}s`;
+  if (diffSec < 5) return 'just now';
+  if (diffSec < 60) return `${diffSec}s ago`;
 
   const min = Math.floor(diffSec / 60);
-  if (min < 60) return `vor ${min} min`;
+  if (min < 60) return `${min}m ago`;
 
   const hours = Math.floor(min / 60);
-  if (hours < 24) return `vor ${hours} h`;
+  if (hours < 24) return `${hours}h ago`;
 
   const days = Math.floor(hours / 24);
-  if (days < 30) return `vor ${days} d`;
+  if (days < 30) return `${days}d ago`;
 
-  return new Date(epochSeconds * 1000).toLocaleDateString('de-DE');
+  return new Date(epochSeconds * 1000).toLocaleDateString('en-US');
 };
 
 /**
  * Absolute, locale-formatted timestamp for tooltips.
  */
 export const formatAbsolute = (epochSeconds) => {
-  if (!epochSeconds) return 'Noch keine Daten empfangen';
-  return new Date(epochSeconds * 1000).toLocaleString('de-DE');
+  if (!epochSeconds) return 'No data received yet';
+  return new Date(epochSeconds * 1000).toLocaleString('en-US');
 };
 
 /**

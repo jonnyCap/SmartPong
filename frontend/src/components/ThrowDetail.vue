@@ -10,30 +10,36 @@
       <div class="detail-metrics">
         <div class="dm">
           <span class="hud-label">Peak</span>
-          <span class="dm-val mono">{{ (throwData.peak_acceleration || 0).toFixed(2) }}<span class="u">g</span></span>
+          <span class="dm-val mono">{{ peak.toFixed(2) }}<span class="u">g</span></span>
         </div>
         <div class="dm">
           <span class="hud-label">Drift</span>
-          <span class="dm-val mono">{{ (throwData.drift_angle || 0).toFixed(1) }}<span class="u">°</span></span>
+          <span class="dm-val mono">{{ drift.toFixed(1) }}<span class="u">°</span></span>
         </div>
       </div>
       <div class="detail-tags">
-        <span class="tag" :class="catClass(throwData.control_category)">{{ throwData.control_category || '—' }}</span>
-        <span class="tag" :class="catClass(throwData.drift_category)">{{ throwData.drift_category || '—' }}</span>
+        <span class="tag" :class="catClass(control)">{{ control || '—' }}</span>
+        <span class="tag" :class="catClass(driftCat)">{{ driftCat || '—' }}</span>
       </div>
     </template>
-    <div v-else class="detail-empty mono">Noch keine Würfe</div>
+    <div v-else class="detail-empty mono">No throws yet</div>
   </div>
 </template>
 
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
 import { formatRelative } from '../services/time';
+import { peakOf, driftOf, controlOf, driftCatOf } from '../services/prefs';
 
 const props = defineProps({
   throwData: { type: Object, default: null },
   side: { type: String, default: 'a' },
 });
+
+const peak = computed(() => peakOf(props.throwData));
+const drift = computed(() => driftOf(props.throwData));
+const control = computed(() => controlOf(props.throwData));
+const driftCat = computed(() => driftCatOf(props.throwData));
 
 const nowMs = ref(Date.now());
 let clock = null;
@@ -41,7 +47,7 @@ onMounted(() => { clock = setInterval(() => { nowMs.value = Date.now(); }, 1000)
 onBeforeUnmount(() => clearInterval(clock));
 
 const relTime = computed(() =>
-  props.throwData && props.throwData.timestamp ? formatRelative(props.throwData.timestamp, nowMs.value) : 'gespeichert'
+  props.throwData && props.throwData.timestamp ? formatRelative(props.throwData.timestamp, nowMs.value) : 'stored'
 );
 
 const catClass = (cat) => {
