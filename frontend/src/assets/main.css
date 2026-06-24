@@ -1,16 +1,63 @@
-/* src/assets/main.css */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* src/assets/main.css — SmartPong "Neon Esports HUD" design system */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@500;600;700;800;900&family=Share+Tech+Mono&display=swap');
+
+/* Animatable angle for rotating neon borders (progressive enhancement) */
+@property --hud-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
 
 :root {
-  --bg-main: #0F172A; /* Slate 900 */
-  --bg-panel: rgba(30, 41, 59, 0.7); /* Slate 800 with opacity */
-  --text-main: #F8FAFC; /* Slate 50 */
-  --text-muted: #94A3B8; /* Slate 400 */
-  --accent-color: #3B82F6; /* Blue 500 */
-  --accent-glow: rgba(59, 130, 246, 0.5);
-  --success-color: #10B981; /* Emerald 500 */
-  --danger-color: #EF4444; /* Red 500 */
-  --border-color: rgba(255, 255, 255, 0.1);
+  /* --- Surfaces --- */
+  --bg-void: #04060e;        /* deepest background */
+  --bg-deep: #070b18;
+  --bg-panel: rgba(13, 19, 36, 0.72);
+  --bg-panel-solid: #0b1224;
+  --bg-inset: rgba(2, 5, 14, 0.55);
+
+  /* --- Text --- */
+  --text-main: #eaf2ff;
+  --text-muted: #8194bd;
+  --text-dim: #4d5d84;
+
+  /* --- Neon palette --- */
+  --neon-cyan: #22d3ee;
+  --neon-cyan-bright: #4df3ff;
+  --neon-magenta: #ff36d7;
+  --neon-magenta-bright: #ff7be6;
+  --neon-violet: #9a6bff;
+
+  /* Outcome colors (neon) */
+  --hit: #2ff5b8;
+  --hit-glow: rgba(47, 245, 184, 0.55);
+  --miss: #ff3b6b;
+  --miss-glow: rgba(255, 59, 107, 0.55);
+  --warn: #ffb627;
+
+  /* --- Themeable accent (Settings) defaults to cyan --- */
+  --accent-color: #22d3ee;
+  --accent-2: #ff36d7;
+  --accent-glow: rgba(34, 211, 238, 0.45);
+  --accent-rgb: 34, 211, 238;
+
+  /* Legacy aliases kept for older component styles */
+  --success-color: var(--hit);
+  --danger-color: var(--miss);
+
+  --border-color: rgba(125, 170, 255, 0.12);
+  --border-bright: rgba(var(--accent-rgb), 0.4);
+
+  /* Player identity colors for Duel-Mode */
+  --player-a: #22d3ee;
+  --player-a-rgb: 34, 211, 238;
+  --player-b: #ff36d7;
+  --player-b-rgb: 255, 54, 215;
+
+  --radius: 16px;
+  --font-display: 'Orbitron', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'Share Tech Mono', monospace;
 }
 
 * {
@@ -19,51 +66,203 @@
   padding: 0;
 }
 
+html, body {
+  height: 100%;
+}
+
 body {
-  font-family: 'Inter', sans-serif;
-  background-color: var(--bg-main);
+  font-family: var(--font-body);
+  background-color: var(--bg-void);
   color: var(--text-main);
   min-height: 100vh;
   overflow-x: hidden;
-  background-image: radial-gradient(circle at top right, rgba(59, 130, 246, 0.15), transparent 400px),
-                    radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.1), transparent 400px);
+  position: relative;
+  background-image:
+    radial-gradient(900px circle at 12% -5%, rgba(var(--accent-rgb), 0.16), transparent 60%),
+    radial-gradient(820px circle at 100% 0%, rgba(255, 54, 215, 0.13), transparent 55%),
+    radial-gradient(700px circle at 50% 120%, rgba(154, 107, 255, 0.12), transparent 60%);
 }
 
+/* Faint HUD grid + scanline overlay across the whole app */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(125, 170, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125, 170, 255, 0.035) 1px, transparent 1px);
+  background-size: 46px 46px;
+  -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 30%, #000 40%, transparent 100%);
+  mask-image: radial-gradient(ellipse 90% 80% at 50% 30%, #000 40%, transparent 100%);
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0) 0px,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.16) 3px,
+    rgba(0, 0, 0, 0) 4px
+  );
+  opacity: 0.35;
+  mix-blend-mode: overlay;
+}
+
+#app {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- Panels ---------- */
 .glass-panel {
-  background: var(--bg-panel);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  position: relative;
+  background:
+    linear-gradient(165deg, rgba(22, 31, 56, 0.78), rgba(7, 11, 24, 0.85));
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
   border: 1px solid var(--border-color);
-  border-radius: 16px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 10px 15px rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius);
+  box-shadow:
+    0 22px 50px -28px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 0 60px -40px rgba(var(--accent-rgb), 0.5);
+}
+
+/* HUD corner brackets — purely decorative */
+.hud-corners::before,
+.hud-corners::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(var(--accent-rgb), 0.5);
+  pointer-events: none;
+  z-index: 2;
+}
+.hud-corners::before {
+  top: 10px;
+  left: 10px;
+  border-right: none;
+  border-bottom: none;
+  border-top-left-radius: 6px;
+}
+.hud-corners::after {
+  bottom: 10px;
+  right: 10px;
+  border-left: none;
+  border-top: none;
+  border-bottom-right-radius: 6px;
+}
+
+/* Animated flowing neon gradient border */
+.neon-frame {
+  position: relative;
+  isolation: isolate;
+}
+.neon-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(
+    var(--hud-angle, 130deg),
+    var(--accent-color),
+    var(--accent-2),
+    var(--neon-violet),
+    var(--accent-color)
+  );
+  background-size: 300% 300%;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: borderFlow 7s ease infinite;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0.85;
+}
+
+@keyframes borderFlow {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ---------- Typography ---------- */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .text-gradient {
-  background: linear-gradient(135deg, #60A5FA, #A78BFA);
+  background: linear-gradient(115deg, var(--accent-color), var(--accent-2) 55%, var(--neon-violet));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   color: transparent;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  font-weight: 600;
-  letter-spacing: -0.025em;
+.display {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
 }
 
-::-webkit-scrollbar {
-  width: 8px;
+.mono {
+  font-family: var(--font-mono);
+  letter-spacing: 0.03em;
 }
 
-::-webkit-scrollbar-track {
-  background: var(--bg-main);
+.glow-cyan { color: var(--neon-cyan); text-shadow: 0 0 14px rgba(34, 211, 238, 0.55); }
+.glow-magenta { color: var(--neon-magenta); text-shadow: 0 0 14px rgba(255, 54, 215, 0.55); }
+.glow-hit { color: var(--hit); text-shadow: 0 0 14px var(--hit-glow); }
+.glow-miss { color: var(--miss); text-shadow: 0 0 14px var(--miss-glow); }
+
+/* ---------- HUD label (small mono uppercase) ---------- */
+.hud-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
 }
 
+/* ---------- Scrollbar ---------- */
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: var(--text-muted);
-  border-radius: 4px;
+  background: linear-gradient(var(--accent-color), var(--accent-2));
+  border-radius: 6px;
+  border: 2px solid var(--bg-void);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--accent-color); }
+
+::selection {
+  background: rgba(var(--accent-rgb), 0.35);
+  color: #fff;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--text-main);
+/* ---------- Shared keyframes ---------- */
+@keyframes floatPulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@keyframes ringPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.5); }
+  70%  { box-shadow: 0 0 0 10px rgba(var(--accent-rgb), 0); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neon-frame::after { animation: none; }
+  body::after { display: none; }
 }

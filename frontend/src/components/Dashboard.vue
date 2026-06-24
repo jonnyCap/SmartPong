@@ -1,47 +1,70 @@
 <template>
-  <div class="dashboard-wrapper glass-panel">
-    <h3>Profile Stats ({{ viewModeLabel }})</h3>
-    
-    <div v-if="userProfile && filteredThrows.length > 0" class="stats-grid">
-      <div class="stat-card">
-        <span class="label">Selected Throws</span>
-        <span class="value">{{ filteredThrows.length }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="label">Hit Rate</span>
-        <span class="value">{{ hitRate.toFixed(1) }}%</span>
-      </div>
-      <div class="stat-card">
-        <span class="label">Accel (Selected)</span>
-        <span class="value">{{ avgAccel.toFixed(2) }} g</span>
-        <span class="subtext">Min: {{ minAccel.toFixed(2) }} | Max: {{ maxAccel.toFixed(2) }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="label">Drift (Selected)</span>
-        <span class="value">{{ avgDrift.toFixed(1) }}°</span>
-        <span class="subtext">Min: {{ minDrift.toFixed(1) }}° | Max: {{ maxDrift.toFixed(1) }}°</span>
-      </div>
-    </div>
-    <div v-else-if="userProfile" class="loading">No throws found for this selection.</div>
-    <div v-else class="loading">Loading profile data...</div>
-
-    <h3 class="mt-4">Control Quality</h3>
-    <div v-if="userProfile && filteredThrows.length > 0" class="tile-grid">
-      <div v-for="(pct, cat) in classPercentages.control" :key="cat" class="class-tile" :class="getColorClass(cat)">
-        <span class="tile-name">{{ cat }}</span>
-        <span class="tile-pct">{{ pct }}</span>
-      </div>
+  <div class="dashboard-wrapper glass-panel hud-corners">
+    <div class="dash-head">
+      <span class="hud-label">Profile Telemetry</span>
+      <span class="view-chip mono">{{ viewModeLabel }}</span>
     </div>
 
-    <h3 class="mt-4">Drift Quality</h3>
-    <div v-if="userProfile && filteredThrows.length > 0" class="tile-grid">
-      <div v-for="(pct, cat) in classPercentages.drift" :key="cat" class="class-tile" :class="getColorClass(cat)">
-        <span class="tile-name">{{ cat }}</span>
-        <span class="tile-pct">{{ pct }}</span>
+    <div v-if="userProfile && filteredThrows.length > 0" class="dash-body">
+      <!-- Hero: Hit rate -->
+      <div class="hero neon-frame">
+        <div class="hero-left">
+          <span class="hud-label">Hit Rate</span>
+          <div class="hero-value display">
+            {{ hitRate.toFixed(1) }}<span class="unit">%</span>
+          </div>
+          <div class="hero-bar">
+            <div class="hero-bar-fill" :style="{ width: hitRate + '%' }"></div>
+          </div>
+        </div>
+        <div class="hero-right">
+          <div class="mini-stat">
+            <span class="hud-label">Throws</span>
+            <span class="mini-val display">{{ filteredThrows.length }}</span>
+          </div>
+          <div class="mini-stat">
+            <span class="hud-label">Hits</span>
+            <span class="mini-val display glow-hit">{{ hitCount }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stat cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="hud-label">Peak Accel</span>
+          <span class="value display glow-cyan">{{ avgAccel.toFixed(2) }}<span class="unit"> g</span></span>
+          <span class="subtext mono">min {{ minAccel.toFixed(2) }} · max {{ maxAccel.toFixed(2) }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="hud-label">Drift Angle</span>
+          <span class="value display glow-magenta">{{ avgDrift.toFixed(1) }}<span class="unit">°</span></span>
+          <span class="subtext mono">min {{ minDrift.toFixed(1) }}° · max {{ maxDrift.toFixed(1) }}°</span>
+        </div>
       </div>
     </div>
-    <div v-else class="loading">Waiting for data...</div>
-    
+    <div v-else-if="userProfile" class="loading">Keine Würfe für diese Auswahl.</div>
+    <div v-else class="loading">Lade Profildaten…</div>
+
+    <div v-if="userProfile && filteredThrows.length > 0" class="quality-block">
+      <span class="hud-label">Control Quality</span>
+      <div class="tile-grid">
+        <div v-for="(pct, cat) in classPercentages.control" :key="cat" class="class-tile" :class="getColorClass(cat)">
+          <span class="tile-name">{{ cat }}</span>
+          <span class="tile-pct display">{{ pct }}</span>
+          <div class="tile-bar"><div class="tile-bar-fill" :style="{ width: pct }"></div></div>
+        </div>
+      </div>
+
+      <span class="hud-label">Drift Quality</span>
+      <div class="tile-grid">
+        <div v-for="(pct, cat) in classPercentages.drift" :key="cat" class="class-tile" :class="getColorClass(cat)">
+          <span class="tile-name">{{ cat }}</span>
+          <span class="tile-pct display">{{ pct }}</span>
+          <div class="tile-bar"><div class="tile-bar-fill" :style="{ width: pct }"></div></div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -49,40 +72,31 @@
 import { defineProps, computed } from 'vue';
 
 const props = defineProps({
-  userProfile: {
-    type: Object,
-    default: null
-  },
-  latestThrow: {
-    type: Object,
-    default: null
-  },
-  viewMode: {
-    type: String,
-    default: 'all'
-  }
+  userProfile: { type: Object, default: null },
+  latestThrow: { type: Object, default: null },
+  viewMode: { type: String, default: 'all' },
 });
 
 const viewModeLabel = computed(() => {
-  if (props.viewMode === 'all') return 'All Throws';
-  if (props.viewMode === 'hits') return 'Hits Only';
-  if (props.viewMode === 'misses') return 'Misses Only';
-  if (props.viewMode === 'latest') return 'Latest Throw';
+  if (props.viewMode === 'all') return 'ALL THROWS';
+  if (props.viewMode === 'hits') return 'HITS ONLY';
+  if (props.viewMode === 'misses') return 'MISSES ONLY';
+  if (props.viewMode === 'latest') return 'LATEST THROW';
   if (props.viewMode.startsWith('history-')) {
     const idx = parseInt(props.viewMode.split('-')[1]);
     const total = props.userProfile?.throws?.length || 0;
-    return `Throw #${total - idx}`;
+    return `THROW #${total - idx}`;
   }
-  return 'Selected';
+  return 'SELECTED';
 });
 
 const filteredThrows = computed(() => {
   if (!props.userProfile || !props.userProfile.throws) return [];
   if (props.viewMode === 'all') return props.userProfile.throws;
-  if (props.viewMode === 'hits') return props.userProfile.throws.filter(t => t.is_hit);
-  if (props.viewMode === 'misses') return props.userProfile.throws.filter(t => !t.is_hit);
+  if (props.viewMode === 'hits') return props.userProfile.throws.filter((t) => t.is_hit);
+  if (props.viewMode === 'misses') return props.userProfile.throws.filter((t) => !t.is_hit);
   if (props.viewMode === 'latest') {
-    if (props.latestThrow) return [props.latestThrow]; // This has different structure (no path array, but has peak_accel, etc)
+    if (props.latestThrow) return [props.latestThrow];
     const len = props.userProfile.throws.length;
     return len > 0 ? [props.userProfile.throws[len - 1]] : [];
   }
@@ -93,10 +107,11 @@ const filteredThrows = computed(() => {
   return [];
 });
 
+const hitCount = computed(() => filteredThrows.value.filter((t) => t.is_hit || t.hit).length);
+
 const hitRate = computed(() => {
   if (filteredThrows.value.length === 0) return 0;
-  const hits = filteredThrows.value.filter(t => t.is_hit || t.hit).length; // Handle both throw object formats
-  return (hits / filteredThrows.value.length) * 100;
+  return (hitCount.value / filteredThrows.value.length) * 100;
 });
 
 const avgAccel = computed(() => {
@@ -105,11 +120,11 @@ const avgAccel = computed(() => {
 });
 const minAccel = computed(() => {
   if (filteredThrows.value.length === 0) return 0;
-  return Math.min(...filteredThrows.value.map(t => t.peak_acceleration));
+  return Math.min(...filteredThrows.value.map((t) => t.peak_acceleration));
 });
 const maxAccel = computed(() => {
   if (filteredThrows.value.length === 0) return 0;
-  return Math.max(...filteredThrows.value.map(t => t.peak_acceleration));
+  return Math.max(...filteredThrows.value.map((t) => t.peak_acceleration));
 });
 
 const avgDrift = computed(() => {
@@ -118,39 +133,34 @@ const avgDrift = computed(() => {
 });
 const minDrift = computed(() => {
   if (filteredThrows.value.length === 0) return 0;
-  return Math.min(...filteredThrows.value.map(t => t.drift_angle || 0));
+  return Math.min(...filteredThrows.value.map((t) => t.drift_angle || 0));
 });
 const maxDrift = computed(() => {
   if (filteredThrows.value.length === 0) return 0;
-  return Math.max(...filteredThrows.value.map(t => t.drift_angle || 0));
+  return Math.max(...filteredThrows.value.map((t) => t.drift_angle || 0));
 });
 
 const classPercentages = computed(() => {
   const throws = filteredThrows.value;
   const count = throws.length;
-  
-  // Default values to ensure all categories show up even if 0%
+
   const control = { 'Controlled': 0, 'Moderately Controlled': 0, 'Uncontrolled': 0 };
   const drift = { 'Low Drift': 0, 'Moderate Drift': 0, 'Strong Drift': 0 };
-  
+
   if (count === 0) {
-    Object.keys(control).forEach(k => control[k] = '0.0%');
-    Object.keys(drift).forEach(k => drift[k] = '0.0%');
+    Object.keys(control).forEach((k) => (control[k] = '0.0%'));
+    Object.keys(drift).forEach((k) => (drift[k] = '0.0%'));
     return { control, drift };
   }
-  
-  throws.forEach(t => {
-     if (t.control_category) {
-       control[t.control_category] = (control[t.control_category] || 0) + 1;
-     }
-     if (t.drift_category) {
-       drift[t.drift_category] = (drift[t.drift_category] || 0) + 1;
-     }
+
+  throws.forEach((t) => {
+    if (t.control_category) control[t.control_category] = (control[t.control_category] || 0) + 1;
+    if (t.drift_category) drift[t.drift_category] = (drift[t.drift_category] || 0) + 1;
   });
-  
-  Object.keys(control).forEach(k => control[k] = ((control[k] / count) * 100).toFixed(1) + '%');
-  Object.keys(drift).forEach(k => drift[k] = ((drift[k] / count) * 100).toFixed(1) + '%');
-  
+
+  Object.keys(control).forEach((k) => (control[k] = ((control[k] / count) * 100).toFixed(1) + '%'));
+  Object.keys(drift).forEach((k) => (drift[k] = ((drift[k] / count) * 100).toFixed(1) + '%'));
+
   return { control, drift };
 });
 
@@ -160,162 +170,178 @@ const getColorClass = (cat) => {
   if (cat === 'Uncontrolled' || cat === 'Strong Drift') return 'tile-danger';
   return '';
 };
-
 </script>
 
 <style scoped>
 .dashboard-wrapper {
-  padding: 1.5rem;
+  padding: 1.4rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.2rem;
+  overflow-y: auto;
 }
 
-h3 {
-  color: var(--text-muted);
-  font-size: 1rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 0.5rem;
-  margin-bottom: 0.5rem;
+.dash-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.view-chip {
+  font-size: 0.65rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: var(--accent-color);
+  background: rgba(var(--accent-rgb), 0.1);
+  border: 1px solid color-mix(in srgb, var(--accent-color) 35%, transparent);
 }
 
-.mt-4 {
-  margin-top: 1rem;
+.dash-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
 }
 
+/* ---- Hero ---- */
+.hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.3rem 1.4rem;
+  border-radius: 14px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(var(--accent-rgb), 0.14), transparent 60%),
+    linear-gradient(150deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.3));
+}
+.hero-left { display: flex; flex-direction: column; gap: 0.4rem; flex: 1; }
+.hero-value {
+  font-size: 3rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text-main);
+  text-shadow: 0 0 24px rgba(var(--accent-rgb), 0.4);
+}
+.hero-value .unit { font-size: 1.2rem; color: var(--text-muted); margin-left: 2px; }
+.hero-bar {
+  margin-top: 0.5rem;
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  position: relative;
+}
+.hero-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent-color), var(--accent-2));
+  box-shadow: 0 0 14px var(--accent-color);
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.hero-right {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.9rem;
+  padding-left: 1rem;
+  border-left: 1px solid var(--border-color);
+}
+.mini-stat { display: flex; flex-direction: column; gap: 0.2rem; }
+.mini-val { font-size: 1.5rem; font-weight: 700; }
+
+/* ---- Stat cards ---- */
 .stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
 }
-
 .stat-card {
-  background: rgba(0, 0, 0, 0.2);
-  padding: 1rem;
+  position: relative;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.28));
+  padding: 1rem 1.1rem;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  border: 1px solid transparent;
-  transition: all 0.3s ease;
+  gap: 0.4rem;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  transition: transform 0.25s ease, border-color 0.25s ease;
 }
-
+.stat-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
+  opacity: 0.6;
+}
 .stat-card:hover {
-  border-color: rgba(59, 130, 246, 0.3);
-  transform: translateY(-2px);
-  background: rgba(59, 130, 246, 0.05);
+  transform: translateY(-3px);
+  border-color: var(--border-bright);
 }
+.value { font-size: 1.7rem; font-weight: 700; line-height: 1.1; }
+.value .unit { font-size: 0.9rem; color: var(--text-muted); }
+.subtext { font-size: 0.66rem; color: var(--text-dim); }
 
-.label {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-
-.value {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-main);
-}
-
-.subtext {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-
+/* ---- Quality tiles ---- */
+.quality-block { display: flex; flex-direction: column; gap: 0.7rem; }
+.quality-block .hud-label { margin-top: 0.3rem; }
 .tile-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
+  gap: 0.8rem;
 }
-
 .class-tile {
-  background: rgba(0, 0, 0, 0.2);
-  padding: 1.5rem 0.5rem;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.9rem 0.6rem 0.7rem;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border: 1px solid transparent;
-  transition: all 0.3s ease;
+  border: 1px solid var(--border-color);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
   text-align: center;
   gap: 0.5rem;
 }
-
-.class-tile:hover {
-  border-color: rgba(59, 130, 246, 0.3);
-  transform: translateY(-2px);
-  background: rgba(59, 130, 246, 0.05);
-}
-
+.class-tile:hover { transform: translateY(-3px); }
 .tile-name {
-  font-size: 0.85rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  min-height: 2.5em;
+  min-height: 2.2em;
   display: flex;
   align-items: center;
-  justify-content: center;
 }
-
-.tile-pct {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: var(--text-main);
+.tile-pct { font-size: 1.5rem; font-weight: 700; }
+.tile-bar {
+  width: 100%;
+  height: 4px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.5);
+  overflow: hidden;
 }
+.tile-bar-fill { height: 100%; transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
 
 .loading {
-  color: var(--text-muted);
+  color: var(--text-dim);
   font-style: italic;
-  font-size: 0.9rem;
-  padding: 1rem 0;
+  font-size: 0.85rem;
+  padding: 1.5rem 0;
+  text-align: center;
 }
 
-.tile-success {
-  background: rgba(16, 185, 129, 0.15);
-  border-color: rgba(16, 185, 129, 0.3);
-}
-.tile-success:hover {
-  background: rgba(16, 185, 129, 0.25);
-  border-color: rgba(16, 185, 129, 0.5);
-}
-.tile-success .tile-name {
-  color: #a7f3d0;
-}
-.tile-success .tile-pct {
-  color: #10b981;
-}
+.tile-success { border-color: rgba(47, 245, 184, 0.28); }
+.tile-success:hover { box-shadow: 0 8px 26px -16px var(--hit-glow); }
+.tile-success .tile-pct { color: var(--hit); text-shadow: 0 0 12px var(--hit-glow); }
+.tile-success .tile-bar-fill { background: var(--hit); box-shadow: 0 0 10px var(--hit-glow); }
 
-.tile-warning {
-  background: rgba(245, 158, 11, 0.15);
-  border-color: rgba(245, 158, 11, 0.3);
-}
-.tile-warning:hover {
-  background: rgba(245, 158, 11, 0.25);
-  border-color: rgba(245, 158, 11, 0.5);
-}
-.tile-warning .tile-name {
-  color: #fde68a;
-}
-.tile-warning .tile-pct {
-  color: #f59e0b;
-}
+.tile-warning { border-color: rgba(255, 182, 39, 0.28); }
+.tile-warning:hover { box-shadow: 0 8px 26px -16px rgba(255, 182, 39, 0.5); }
+.tile-warning .tile-pct { color: var(--warn); text-shadow: 0 0 12px rgba(255, 182, 39, 0.5); }
+.tile-warning .tile-bar-fill { background: var(--warn); box-shadow: 0 0 10px rgba(255, 182, 39, 0.5); }
 
-.tile-danger {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.3);
-}
-.tile-danger:hover {
-  background: rgba(239, 68, 68, 0.25);
-  border-color: rgba(239, 68, 68, 0.5);
-}
-.tile-danger .tile-name {
-  color: #fecaca;
-}
-.tile-danger .tile-pct {
-  color: #ef4444;
-}
+.tile-danger { border-color: rgba(255, 59, 107, 0.28); }
+.tile-danger:hover { box-shadow: 0 8px 26px -16px var(--miss-glow); }
+.tile-danger .tile-pct { color: var(--miss); text-shadow: 0 0 12px var(--miss-glow); }
+.tile-danger .tile-bar-fill { background: var(--miss); box-shadow: 0 0 10px var(--miss-glow); }
 </style>

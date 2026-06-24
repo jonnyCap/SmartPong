@@ -1,8 +1,18 @@
 <template>
-  <div class="viewer-wrapper glass-panel">
+  <div class="viewer-wrapper glass-panel hud-corners" :class="{ compact }">
+    <div class="viewer-head" v-if="!compact">
+      <span class="hud-label">Trajectory · 3D</span>
+      <span class="viewer-legend mono">
+        <span class="lg lg-hit">HIT</span>
+        <span class="lg lg-miss">MISS</span>
+      </span>
+    </div>
     <div class="canvas-container" ref="canvasContainer"></div>
     <div v-if="!currentPathData || currentPathData.length === 0" class="overlay">
-      <p>Waiting for throw data...</p>
+      <div class="overlay-inner">
+        <div class="radar"></div>
+        <p class="mono">Warte auf Wurfdaten…</p>
+      </div>
     </div>
   </div>
 </template>
@@ -12,58 +22,42 @@ import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import * as THREE from 'three';
 
 const props = defineProps({
-  latestTrajectory: {
-    type: Object,
-    default: null
-  },
-  userProfile: {
-    type: Object,
-    default: null
-  },
-  viewMode: {
-    type: String,
-    default: 'all'
-  }
+  latestTrajectory: { type: Object, default: null },
+  userProfile: { type: Object, default: null },
+  viewMode: { type: String, default: 'all' },
+  accentColor: { type: String, default: '#22d3ee' }, // grid / ball / lights
+  forceColor: { type: String, default: '' },          // override trajectory color (duel)
+  compact: { type: Boolean, default: false },
 });
 
 const canvasContainer = ref(null);
 let scene, camera, renderer, animationId;
-let throwPath, ballMesh;
-
-const reversedThrows = computed(() => {
-  if (!props.userProfile || !props.userProfile.throws) return [];
-  return [...props.userProfile.throws].reverse();
-});
+let throwTube, throwGlow, ballMesh, ballLight, gridHelper;
+let moveBallAnimationId;
 
 const currentPathData = computed(() => {
   if (props.viewMode === 'latest' && props.latestTrajectory && props.latestTrajectory.path) {
     return props.latestTrajectory.path;
   }
-  
   if (!props.userProfile || !props.userProfile.throws || props.userProfile.throws.length === 0) {
     return [];
   }
-  
   if (props.viewMode.startsWith('history-')) {
     const idx = parseInt(props.viewMode.split('-')[1]);
     return props.userProfile.throws[idx]?.trajectory_path || [];
   }
-  
   if (props.viewMode.startsWith('avg-') || props.viewMode === 'all' || props.viewMode === 'hits' || props.viewMode === 'misses') {
     let throwsToAvg = props.userProfile.throws;
     if (props.viewMode === 'avg-hits' || props.viewMode === 'hits') {
-      throwsToAvg = throwsToAvg.filter(t => t.is_hit);
+      throwsToAvg = throwsToAvg.filter((t) => t.is_hit);
     } else if (props.viewMode === 'avg-misses' || props.viewMode === 'misses') {
-      throwsToAvg = throwsToAvg.filter(t => !t.is_hit);
+      throwsToAvg = throwsToAvg.filter((t) => !t.is_hit);
     }
-    
     if (throwsToAvg.length === 0) return [];
-    
-    // Average trajectories (simple average of points, assuming similar length)
-    // Find min length
-    let minLen = Math.min(...throwsToAvg.map(t => (t.trajectory_path || []).length));
+
+    let minLen = Math.min(...throwsToAvg.map((t) => (t.trajectory_path || []).length));
     if (minLen === Infinity || minLen === 0) return [];
-    
+
     const avgPath = [];
     for (let i = 0; i < minLen; i++) {
       let sumX = 0, sumY = 0, sumZ = 0;
@@ -76,64 +70,76 @@ const currentPathData = computed(() => {
     }
     return avgPath;
   }
-  
   return [];
+});
+
+const trajectoryColor = computed(() => {
+  if (props.forceColor) return props.forceColor;
+  // outcome-based fallback inferred from the view mode
+  if (props.viewMode.includes('miss')) return '#ff3b6b';
+  return '#2ff5b8';
 });
 
 const initThreeJS = () => {
   const width = canvasContainer.value.clientWidth;
   const height = canvasContainer.value.clientHeight;
 
-  // Scene
   scene = new THREE.Scene();
-  scene.background = new THREE.Color('#0F172A');
-  scene.fog = new THREE.Fog('#0F172A', 10, 50);
+  scene.fog = new THREE.FogExp2(0x04060e, 0.035);
 
-  // Camera
   camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
   camera.position.set(5, 5, 10);
   camera.lookAt(0, 0, 0);
 
-  // Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setSize(width, height);
-  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   canvasContainer.value.appendChild(renderer.domElement);
 
-  // Lighting
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-  scene.add(ambientLight);
-  
-  const pointLight = new THREE.PointLight(0x3B82F6, 1);
-  pointLight.position.set(5, 5, 5);
-  scene.add(pointLight);
+  const accent = new THREE.Color(props.accentColor);
 
-  // Grid
-  const gridHelper = new THREE.GridHelper(10, 10, 0x3B82F6, 0xffffff);
-  gridHelper.material.opacity = 0.2;
+  scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+
+  const keyLight = new THREE.PointLight(accent.getHex(), 1.4, 60);
+  keyLight.position.set(6, 7, 6);
+  scene.add(keyLight);
+
+  const rimLight = new THREE.PointLight(0xff36d7, 0.8, 60);
+  rimLight.position.set(-7, 3, -5);
+  scene.add(rimLight);
+
+  // Neon grid
+  gridHelper = new THREE.GridHelper(12, 12, accent.getHex(), 0x1b2740);
+  gridHelper.material.opacity = 0.45;
   gridHelper.material.transparent = true;
+  gridHelper.position.y = -2;
   scene.add(gridHelper);
 
-  // Ball (Watch representation)
-  const geometry = new THREE.SphereGeometry(0.2, 32, 32);
-  const material = new THREE.MeshPhongMaterial({ 
-    color: 0x3B82F6,
-    emissive: 0x1E3A8A,
-    shininess: 100
+  // Glowing ball (the watch)
+  const geometry = new THREE.SphereGeometry(0.22, 32, 32);
+  const material = new THREE.MeshStandardMaterial({
+    color: accent.getHex(),
+    emissive: accent.getHex(),
+    emissiveIntensity: 1.4,
+    roughness: 0.25,
+    metalness: 0.3,
   });
   ballMesh = new THREE.Mesh(geometry, material);
   scene.add(ballMesh);
 
-  // Animation Loop
+  ballLight = new THREE.PointLight(accent.getHex(), 1.2, 12);
+  ballMesh.add(ballLight);
+
+  const clock = { t: 0 };
   const animate = () => {
     animationId = requestAnimationFrame(animate);
-    
+    clock.t += 0.0045;
     if (camera) {
-      camera.position.x = Math.sin(Date.now() * 0.0005) * 10;
-      camera.position.z = Math.cos(Date.now() * 0.0005) * 10;
+      camera.position.x = Math.sin(clock.t) * 11;
+      camera.position.z = Math.cos(clock.t) * 11;
+      camera.position.y = 5 + Math.sin(clock.t * 0.6) * 1.5;
       camera.lookAt(0, 0, 0);
     }
-    
     renderer.render(scene, camera);
   };
   animate();
@@ -150,110 +156,156 @@ const onWindowResize = () => {
   renderer.setSize(width, height);
 };
 
-let moveBallAnimationId;
+const disposeMesh = (mesh) => {
+  if (!mesh) return;
+  scene.remove(mesh);
+  if (mesh.geometry) mesh.geometry.dispose();
+  if (mesh.material) mesh.material.dispose();
+};
 
 const updateTrajectory = (pathData) => {
-  if (throwPath) {
-    scene.remove(throwPath);
-  }
-  if (moveBallAnimationId) {
-    cancelAnimationFrame(moveBallAnimationId);
-  }
+  disposeMesh(throwTube);
+  disposeMesh(throwGlow);
+  throwTube = throwGlow = null;
+  if (moveBallAnimationId) cancelAnimationFrame(moveBallAnimationId);
 
   if (!pathData || pathData.length < 2) return;
 
-  const points = pathData.map(p => new THREE.Vector3(p[0] * 0.1, p[1] * 0.1, p[2] * 0.1));
-  
-  // Create a smooth curve
+  const points = pathData.map((p) => new THREE.Vector3(p[0] * 0.1, p[1] * 0.1, p[2] * 0.1));
   const curve = new THREE.CatmullRomCurve3(points);
-  const curvePoints = curve.getPoints(50);
-  const geometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
-  
-  const material = new THREE.LineBasicMaterial({ 
-    color: props.viewMode.includes('miss') ? 0xEF4444 : 0x10B981,
-    linewidth: 2 
+  const color = new THREE.Color(trajectoryColor.value);
+
+  // Core neon tube
+  const tubeGeo = new THREE.TubeGeometry(curve, 80, 0.045, 10, false);
+  const tubeMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 });
+  throwTube = new THREE.Mesh(tubeGeo, tubeMat);
+  scene.add(throwTube);
+
+  // Wider additive glow tube
+  const glowGeo = new THREE.TubeGeometry(curve, 80, 0.13, 10, false);
+  const glowMat = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0.22,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
   });
+  throwGlow = new THREE.Mesh(glowGeo, glowMat);
+  scene.add(throwGlow);
 
-  throwPath = new THREE.Line(geometry, material);
-  scene.add(throwPath);
+  // Tint the ball + its light to the trajectory color
+  if (ballMesh) {
+    ballMesh.material.color.copy(color);
+    ballMesh.material.emissive.copy(color);
+    if (ballLight) ballLight.color.copy(color);
+  }
 
-  // Animate ball along the curve
   let progress = 0;
-  
   const moveBall = () => {
-    progress += 0.01;
+    progress += 0.012;
     if (progress <= 1) {
-      const pos = curve.getPointAt(progress);
-      ballMesh.position.copy(pos);
+      ballMesh.position.copy(curve.getPointAt(progress));
+      moveBallAnimationId = requestAnimationFrame(moveBall);
+    } else {
+      progress = 0;
       moveBallAnimationId = requestAnimationFrame(moveBall);
     }
   };
   moveBall();
 };
 
-watch(currentPathData, (newPath) => {
-  updateTrajectory(newPath);
-}, { deep: true });
+watch(currentPathData, (newPath) => updateTrajectory(newPath), { deep: true });
+watch(() => props.forceColor, () => updateTrajectory(currentPathData.value));
 
 onMounted(() => {
   initThreeJS();
-  if (currentPathData.value) {
-    updateTrajectory(currentPathData.value);
-  }
+  if (currentPathData.value) updateTrajectory(currentPathData.value);
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', onWindowResize);
   if (animationId) cancelAnimationFrame(animationId);
   if (moveBallAnimationId) cancelAnimationFrame(moveBallAnimationId);
-  if (renderer && renderer.domElement) {
-    renderer.domElement.remove();
+  if (renderer) {
+    renderer.dispose();
+    if (renderer.domElement) renderer.domElement.remove();
   }
 });
 </script>
 
 <style scoped>
 .viewer-wrapper {
-  padding: 1.5rem;
+  padding: 1.4rem;
   display: flex;
   flex-direction: column;
   position: relative;
   overflow: hidden;
+  gap: 0.9rem;
 }
+.viewer-wrapper.compact { padding: 0; gap: 0; border-radius: 12px; }
 
-
+.viewer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.viewer-legend { display: flex; gap: 0.8rem; font-size: 0.6rem; }
+.lg { display: flex; align-items: center; gap: 0.3rem; letter-spacing: 0.1em; }
+.lg::before {
+  content: "";
+  width: 14px; height: 3px; border-radius: 2px;
+}
+.lg-hit { color: var(--hit); }
+.lg-hit::before { background: var(--hit); box-shadow: 0 0 8px var(--hit-glow); }
+.lg-miss { color: var(--miss); }
+.lg-miss::before { background: var(--miss); box-shadow: 0 0 8px var(--miss-glow); }
 
 .canvas-container {
   flex-grow: 1;
   width: 100%;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
-  background: #000;
+  background:
+    radial-gradient(80% 80% at 50% 30%, rgba(var(--accent-rgb), 0.08), transparent 70%),
+    #03050c;
+  min-height: 200px;
 }
+.compact .canvas-container { border-radius: 12px; }
 
 .overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 1.4rem;
+  top: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 23, 42, 0.7);
-  backdrop-filter: blur(4px);
-  z-index: 5;
-  border-radius: 16px;
+  background: rgba(4, 6, 14, 0.55);
+  backdrop-filter: blur(3px);
+  border-radius: 12px;
 }
-
+.compact .overlay { inset: 0; }
+.overlay-inner { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
 .overlay p {
-  color: var(--accent-color);
-  font-weight: 500;
-  animation: pulse 1.5s infinite;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  animation: floatPulse 1.6s infinite;
 }
-
-@keyframes pulse {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
+.radar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--accent-color) 35%, transparent);
+  position: relative;
 }
+.radar::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--accent-color);
+  animation: radarSpin 1.1s linear infinite;
+}
+@keyframes radarSpin { to { transform: rotate(360deg); } }
 </style>

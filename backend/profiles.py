@@ -1,4 +1,5 @@
 import os
+import time
 from typing import Dict, List, Optional
 from pydantic import BaseModel
 from pymongo import MongoClient
@@ -10,6 +11,9 @@ class ThrowStats(BaseModel):
     trajectory_path: List[List[float]] = []
     control_category: str = ""
     drift_category: str = ""
+    # Unix epoch seconds, stamped by the backend when the throw is received.
+    # Defaults to 0.0 for throws recorded before timestamps were tracked.
+    timestamp: float = 0.0
 
 class UserProfile(BaseModel):
     user_id: str
@@ -49,6 +53,23 @@ class UserProfile(BaseModel):
         import numpy as np
         return float(np.std([t.drift_angle for t in self.throws]))
 
+    @property
+    def last_seen(self) -> float:
+        """Timestamp of the most recently received throw (0.0 if none/untracked)."""
+        if not self.throws:
+            return 0.0
+        return max((t.timestamp for t in self.throws), default=0.0)
+
+    def summary(self) -> dict:
+        """Lightweight metadata used to populate the player picker."""
+        return {
+            "user_id": self.user_id,
+            "total_throws": self.total_throws,
+            "total_hits": self.total_hits,
+            "hit_rate": self.hit_rate,
+            "last_seen": self.last_seen,
+        }
+
 class ProfileManager:
     def __init__(self):
         mongo_uri = os.environ.get("MONGO_URI", "mongodb://mongodb:27017/")
@@ -65,26 +86,39 @@ class ProfileManager:
     def get_all_user_ids(self) -> List[str]:
         return self.collection.distinct("user_id")
 
+    def get_all_user_summaries(self) -> List[dict]:
+        """Per-user metadata for the player picker, sorted by most recent activity."""
+        summaries = [self.get_profile(uid).summary() for uid in self.get_all_user_ids()]
+        summaries.sort(key=lambda s: s["last_seen"], reverse=True)
+        return summaries
+
     def save_profile(self, profile: UserProfile):
         self.collection.update_one(
             {"user_id": profile.user_id},
             {"$set": profile.model_dump()},
             upsert=True
         )
+
+    def reset_profile(self, user_id: str) -> UserProfile:
+        """Clear a player's stats server-side, keeping the player selectable."""
+        empty = UserProfile(user_id=user_id)
+        self.save_profile(empty)
+        return empty
         
-    def add_throw(self, user_id: str, peak_accel: float, drift_angle: float, is_hit: bool, trajectory_path: List[List[float]], control_category: str, drift_category: str):
+    def add_throw(self, user_id: str, peak_accel: float, drift_angle: float, is_hit: bool, trajectory_path: List[List[float]], control_category: str, drift_category: str, timestamp: Optional[float] = None):
         profile = self.get_profile(user_id)
         profile.total_throws += 1
         if is_hit:
             profile.total_hits += 1
-            
+
         profile.throws.append(ThrowStats(
             peak_acceleration=peak_accel,
             drift_angle=drift_angle,
             is_hit=is_hit,
             trajectory_path=trajectory_path,
             control_category=control_category,
-            drift_category=drift_category
+            drift_category=drift_category,
+            timestamp=timestamp if timestamp is not None else time.time()
         ))
         self.save_profile(profile)
         return profile

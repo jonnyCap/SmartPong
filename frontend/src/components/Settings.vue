@@ -1,46 +1,49 @@
 <template>
-  <div class="settings-wrapper glass-panel">
-    <h3>Settings</h3>
-
-    <div class="settings-section">
-      <h4>Theme Appearance</h4>
-      <p class="desc">Personalize your dashboard accent color.</p>
-      
-      <div class="color-options">
-        <button 
-          class="color-btn blue" 
-          :class="{ active: currentAccent === 'blue' }"
-          @click="setAccentColor('blue', '#3B82F6', 'rgba(59, 130, 246, 0.5)')"
-        ></button>
-        <button 
-          class="color-btn purple" 
-          :class="{ active: currentAccent === 'purple' }"
-          @click="setAccentColor('purple', '#8B5CF6', 'rgba(139, 92, 246, 0.5)')"
-        ></button>
-        <button 
-          class="color-btn emerald" 
-          :class="{ active: currentAccent === 'emerald' }"
-          @click="setAccentColor('emerald', '#10B981', 'rgba(16, 185, 129, 0.5)')"
-        ></button>
+  <div class="settings-scroll">
+    <div class="settings-wrapper glass-panel hud-corners">
+      <div class="settings-head">
+        <span class="hud-label">System Configuration</span>
+        <h3 class="display">Settings</h3>
       </div>
-    </div>
 
-    <div class="settings-section mt-4">
-      <h4>Connection Configuration</h4>
-      <p class="desc">MQTT Broker URL used for real-time 3D throws.</p>
-      
-      <div class="input-group">
-        <input type="text" v-model="brokerUrl" disabled />
-        <button class="btn-secondary" disabled>Edit (Locked)</button>
+      <div class="settings-section">
+        <h4>Accent Theme</h4>
+        <p class="desc">Färbt das gesamte HUD um — Glow, Borders und Trajektorien.</p>
+
+        <div class="theme-grid">
+          <button
+            v-for="t in themes"
+            :key="t.name"
+            class="theme-card"
+            :class="{ active: currentAccent === t.name }"
+            :style="{ '--swatch': t.color, '--swatch-2': t.color2 }"
+            @click="applyTheme(t)"
+          >
+            <span class="swatch"></span>
+            <span class="theme-name mono">{{ t.label }}</span>
+          </button>
+        </div>
       </div>
-    </div>
 
-    <div class="settings-section mt-4 danger-zone">
-      <h4>Data Management</h4>
-      <p class="desc">Clear your local profile session stats.</p>
-      
-      <button class="btn-danger" @click="handleReset">Reset Profile Data</button>
-      <p v-if="resetMessage" class="feedback-msg">{{ resetMessage }}</p>
+      <div class="settings-section">
+        <h4>Connection</h4>
+        <p class="desc">MQTT Broker für Echtzeit-Würfe (read-only).</p>
+        <div class="input-group">
+          <div class="conn-field mono">
+            <span class="conn-dot"></span>{{ brokerUrl }}
+          </div>
+          <button class="btn-secondary" disabled>LOCKED</button>
+        </div>
+      </div>
+
+      <div class="settings-section danger-zone">
+        <h4 class="danger-title">Data Management</h4>
+        <p class="desc">Lokale Session-Statistiken zurücksetzen.</p>
+        <button class="btn-danger" @click="handleReset">Reset Profile Data</button>
+        <transition name="fade">
+          <p v-if="resetMessage" class="feedback-msg mono">{{ resetMessage }}</p>
+        </transition>
+      </div>
     </div>
   </div>
 </template>
@@ -48,137 +51,163 @@
 <script setup>
 import { ref } from 'vue';
 
-const currentAccent = ref('blue');
+const themes = [
+  { name: 'cyan', label: 'CYAN', color: '#22d3ee', color2: '#ff36d7', rgb: '34, 211, 238' },
+  { name: 'magenta', label: 'MAGENTA', color: '#ff36d7', color2: '#22d3ee', rgb: '255, 54, 215' },
+  { name: 'violet', label: 'VIOLET', color: '#9a6bff', color2: '#22d3ee', rgb: '154, 107, 255' },
+  { name: 'emerald', label: 'EMERALD', color: '#2ff5b8', color2: '#22d3ee', rgb: '47, 245, 184' },
+  { name: 'amber', label: 'AMBER', color: '#ffb627', color2: '#ff36d7', rgb: '255, 182, 39' },
+];
+
+const currentAccent = ref('cyan');
 const brokerUrl = ref('wss://test.mosquitto.org:8081');
 const resetMessage = ref('');
 
-const setAccentColor = (name, hex, glow) => {
-  currentAccent.value = name;
-  document.documentElement.style.setProperty('--accent-color', hex);
-  document.documentElement.style.setProperty('--accent-glow', glow);
+const applyTheme = (t) => {
+  currentAccent.value = t.name;
+  const root = document.documentElement.style;
+  root.setProperty('--accent-color', t.color);
+  root.setProperty('--accent-2', t.color2);
+  root.setProperty('--accent-rgb', t.rgb);
+  root.setProperty('--accent-glow', `rgba(${t.rgb}, 0.45)`);
 };
 
 const handleReset = () => {
-  // In a real app, this would call an API or clear localStorage
-  resetMessage.value = "Profile data cleared for the current session!";
-  setTimeout(() => {
-    resetMessage.value = '';
-  }, 3000);
+  resetMessage.value = '✓ Profildaten für die aktuelle Session geleert.';
+  setTimeout(() => { resetMessage.value = ''; }, 3000);
 };
 </script>
 
 <style scoped>
+.settings-scroll { overflow-y: auto; height: 100%; }
 .settings-wrapper {
-  padding: 1.5rem;
+  padding: 1.8rem;
   display: flex;
   flex-direction: column;
+  max-width: 720px;
 }
 
-h3 {
-  color: var(--text-main);
-  font-size: 1.25rem;
+.settings-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
   margin-bottom: 2rem;
+  padding-bottom: 1.2rem;
   border-bottom: 1px solid var(--border-color);
-  padding-bottom: 1rem;
+}
+.settings-head h3 {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
-.settings-section {
-  margin-bottom: 2rem;
-}
-
-.mt-4 {
-  margin-top: 1rem;
-}
-
+.settings-section { margin-bottom: 2rem; }
 h4 {
-  color: var(--text-main);
-  font-size: 1rem;
+  font-size: 0.95rem;
   margin-bottom: 0.25rem;
+  letter-spacing: 0.02em;
 }
-
 .desc {
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   margin-bottom: 1rem;
 }
 
-.color-options {
+/* ---- Theme grid ---- */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 0.8rem;
+}
+.theme-card {
+  --swatch: var(--accent-color);
+  --swatch-2: var(--accent-2);
   display: flex;
-  gap: 1rem;
-}
-
-.color-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.color-btn:hover {
-  transform: scale(1.1);
-}
-
-.color-btn.active {
-  border-color: white;
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
-}
-
-.color-btn.blue { background-color: #3B82F6; }
-.color-btn.purple { background-color: #8B5CF6; }
-.color-btn.emerald { background-color: #10B981; }
-
-.input-group {
-  display: flex;
-  gap: 1rem;
-}
-
-input[type="text"] {
-  flex-grow: 1;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid var(--border-color);
-  color: var(--text-muted);
-  font-family: inherit;
-}
-
-.btn-secondary {
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-color);
-  color: var(--text-muted);
-  cursor: not-allowed;
-}
-
-.danger-zone {
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  background: rgba(239, 68, 68, 0.05);
-  padding: 1.5rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem 0.5rem;
   border-radius: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.theme-card:hover { transform: translateY(-3px); border-color: var(--swatch); }
+.theme-card.active {
+  border-color: var(--swatch);
+  box-shadow: 0 0 0 1px var(--swatch), 0 10px 30px -16px var(--swatch);
+}
+.swatch {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--swatch), var(--swatch-2));
+  box-shadow: 0 0 16px -2px var(--swatch);
+}
+.theme-name { font-size: 0.66rem; color: var(--text-muted); letter-spacing: 0.12em; }
+.theme-card.active .theme-name { color: var(--text-main); }
+
+/* ---- Connection ---- */
+.input-group { display: flex; gap: 0.8rem; }
+.conn-field {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border-radius: 9px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+.conn-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--hit);
+  box-shadow: 0 0 10px var(--hit-glow);
+}
+.btn-secondary {
+  padding: 0.75rem 1.4rem;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  color: var(--text-dim);
+  cursor: not-allowed;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
 }
 
+/* ---- Danger ---- */
+.danger-zone {
+  border: 1px solid rgba(255, 59, 107, 0.25);
+  background: rgba(255, 59, 107, 0.05);
+  padding: 1.4rem;
+  border-radius: 12px;
+  margin-bottom: 0;
+}
+.danger-title { color: var(--miss); }
 .btn-danger {
   padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  background: var(--danger-color);
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--miss), #c81e4a);
   border: none;
   color: white;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: transform 0.15s, box-shadow 0.2s;
 }
-
 .btn-danger:hover {
-  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px -12px var(--miss-glow);
 }
-
 .feedback-msg {
   margin-top: 1rem;
-  color: var(--success-color);
-  font-size: 0.9rem;
-  font-weight: 500;
+  color: var(--hit);
+  font-size: 0.78rem;
 }
+
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>
