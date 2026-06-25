@@ -5,8 +5,7 @@ void extract_features(const float* ax, const float* ay, const float* az, int len
     if (length <= 0) return;
 
     float sum_x = 0, sum_y = 0, sum_z = 0;
-    
-    // 1. Calculate means
+
     for (int i = 0; i < length; i++) {
         sum_x += ax[i];
         sum_y += ay[i];
@@ -16,8 +15,7 @@ void extract_features(const float* ax, const float* ay, const float* az, int len
     float mean_y = sum_y / length;
     float mean_z = sum_z / length;
 
-    // 2. Calculate magnitudes
-    float magnitudes[128]; // max expected length is 128
+    float magnitudes[128];
     float sum_mag = 0;
     float max_mag = -10000.0f;
     float min_mag = 10000.0f;
@@ -30,10 +28,8 @@ void extract_features(const float* ax, const float* ay, const float* az, int len
     }
     float mean_mag = sum_mag / length;
 
-    // 3. Peak to Peak
     float peak_to_peak = max_mag - min_mag;
 
-    // 4. Signal Variance
     float sum_var = 0;
     for (int i = 0; i < length && i < 128; i++) {
         float diff = magnitudes[i] - mean_mag;
@@ -41,9 +37,8 @@ void extract_features(const float* ax, const float* ay, const float* az, int len
     }
     float signal_variance = sum_var / length;
 
-    // 5. Max Abs Jerk
     float max_abs_jerk = 0;
-    float dt = 1.0f / 50.0f; // 50 Hz sampling rate
+    float dt = 1.0f / 50.0f;
     for (int i = 1; i < length && i < 128; i++) {
         float jerk = (magnitudes[i] - magnitudes[i-1]) / dt;
         float abs_jerk = fabsf(jerk);
@@ -52,7 +47,6 @@ void extract_features(const float* ax, const float* ay, const float* az, int len
         }
     }
 
-    // 6. Kurtosis
     float sum_m4 = 0;
     for (int i = 0; i < length && i < 128; i++) {
         float diff = magnitudes[i] - mean_mag;
@@ -63,10 +57,9 @@ void extract_features(const float* ax, const float* ay, const float* az, int len
     float m2 = signal_variance;
     float kurtosis = 0;
     if (m2 > 1e-6f) {
-        kurtosis = (m4 / (m2 * m2)) - 3.0f; // Excess kurtosis
+        kurtosis = (m4 / (m2 * m2)) - 3.0f;
     }
 
-    // Output assignment
     out_features[0] = mean_x;
     out_features[1] = mean_y;
     out_features[2] = mean_z;

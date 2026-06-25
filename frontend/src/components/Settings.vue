@@ -119,7 +119,6 @@ h4 {
   margin-bottom: 1rem;
 }
 
-/* ---- Theme grid ---- */
 .theme-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
@@ -154,7 +153,6 @@ h4 {
 .theme-name { font-size: 0.66rem; color: var(--text-muted); letter-spacing: 0.12em; }
 .theme-card.active .theme-name { color: var(--text-main); }
 
-/* ---- Connection ---- */
 .input-group { display: flex; gap: 0.8rem; }
 .conn-field {
   flex-grow: 1;
@@ -189,7 +187,6 @@ h4 {
   letter-spacing: 0.12em;
 }
 
-/* ---- Danger ---- */
 .danger-zone {
   border: 1px solid rgba(255, 59, 107, 0.25);
   background: rgba(255, 59, 107, 0.05);

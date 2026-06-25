@@ -23,9 +23,6 @@ app_display_snapshot_t display_snapshot = {0};
 
 static void display_task(void *arg)
 {
-    // The display snapshot is seeded in app_main before this task starts so the
-    // screen shows something immediately; here we only refresh live IMU data
-    // and re-render. WiFi/connection status is owned by network_task.
     while (1) {
         float ax = 0, ay = 0, az = 0;
         if (m5stickc_plus_read_accel_g(&m5_device, &ax, &ay, &az) == ESP_OK) {

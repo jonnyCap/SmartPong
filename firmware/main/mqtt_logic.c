@@ -10,13 +10,7 @@
 static const char *TAG = "mqtt_logic";
 static esp_mqtt_client_handle_t client = NULL;
 
-// The broker runs on the Mac. We resolve it by its Bonjour/mDNS name so the
-// demo keeps working even if the Mac's DHCP IP changes (no re-flash needed).
-// MDNS_BROKER_HOST is the Mac's LocalHostName (System Settings > Sharing, or
-// `scutil --get LocalHostName`) WITHOUT the ".local" suffix.
 #define MDNS_BROKER_HOST  "smartpong-broker"
-// Fallback if mDNS can't resolve (e.g. a hotspot/AP that blocks multicast):
-// the Mac's current LAN IP. Update with `ipconfig getifaddr en0` if needed.
 #define MQTT_FALLBACK_URI "mqtt://192.168.1.100"
 #define MDNS_RESOLVE_TIMEOUT_MS 4000
 
@@ -43,8 +37,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     }
 }
 
-// Resolve the broker via mDNS (<MDNS_BROKER_HOST>.local), falling back to a
-// hardcoded IP. Writes the chosen "mqtt://host" into out_uri.
 static void resolve_broker_uri(char *out_uri, size_t out_len)
 {
     snprintf(out_uri, out_len, "%s", MQTT_FALLBACK_URI);

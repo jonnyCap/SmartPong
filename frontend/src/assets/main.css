@@ -1,7 +1,5 @@
-/* src/assets/main.css — SmartPong "Neon Esports HUD" design system */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@500;600;700;800;900&family=Share+Tech+Mono&display=swap');
 
-/* Animatable angle for rotating neon borders (progressive enhancement) */
 @property --hud-angle {
   syntax: '<angle>';
   initial-value: 0deg;
@@ -9,46 +7,39 @@
 }
 
 :root {
-  /* --- Surfaces --- */
-  --bg-void: #04060e;        /* deepest background */
+  --bg-void: #04060e;
   --bg-deep: #070b18;
   --bg-panel: rgba(13, 19, 36, 0.72);
   --bg-panel-solid: #0b1224;
   --bg-inset: rgba(2, 5, 14, 0.55);
 
-  /* --- Text --- */
   --text-main: #eaf2ff;
   --text-muted: #8194bd;
   --text-dim: #4d5d84;
 
-  /* --- Neon palette --- */
   --neon-cyan: #22d3ee;
   --neon-cyan-bright: #4df3ff;
   --neon-magenta: #ff36d7;
   --neon-magenta-bright: #ff7be6;
   --neon-violet: #9a6bff;
 
-  /* Outcome colors (neon) */
   --hit: #2ff5b8;
   --hit-glow: rgba(47, 245, 184, 0.55);
   --miss: #ff3b6b;
   --miss-glow: rgba(255, 59, 107, 0.55);
   --warn: #ffb627;
 
-  /* --- Themeable accent (Settings) defaults to cyan --- */
   --accent-color: #22d3ee;
   --accent-2: #ff36d7;
   --accent-glow: rgba(34, 211, 238, 0.45);
   --accent-rgb: 34, 211, 238;
 
-  /* Legacy aliases kept for older component styles */
   --success-color: var(--hit);
   --danger-color: var(--miss);
 
   --border-color: rgba(125, 170, 255, 0.12);
   --border-bright: rgba(var(--accent-rgb), 0.4);
 
-  /* Player identity colors for Duel-Mode */
   --player-a: #22d3ee;
   --player-a-rgb: 34, 211, 238;
   --player-b: #ff36d7;
@@ -83,7 +74,6 @@ body {
     radial-gradient(700px circle at 50% 120%, rgba(154, 107, 255, 0.12), transparent 60%);
 }
 
-/* Faint HUD grid + scanline overlay across the whole app */
 body::before {
   content: "";
   position: fixed;
@@ -120,7 +110,6 @@ body::after {
   z-index: 1;
 }
 
-/* ---------- Panels ---------- */
 .glass-panel {
   position: relative;
   background:
@@ -135,7 +124,6 @@ body::after {
     inset 0 0 60px -40px rgba(var(--accent-rgb), 0.5);
 }
 
-/* HUD corner brackets — purely decorative */
 .hud-corners::before,
 .hud-corners::after {
   content: "";
@@ -161,7 +149,6 @@ body::after {
   border-bottom-right-radius: 6px;
 }
 
-/* Animated flowing neon gradient border */
 .neon-frame {
   position: relative;
   isolation: isolate;
@@ -197,7 +184,6 @@ body::after {
   100% { background-position: 0% 50%; }
 }
 
-/* ---------- Typography ---------- */
 h1, h2, h3, h4, h5, h6 {
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -226,7 +212,6 @@ h1, h2, h3, h4, h5, h6 {
 .glow-hit { color: var(--hit); text-shadow: 0 0 14px var(--hit-glow); }
 .glow-miss { color: var(--miss); text-shadow: 0 0 14px var(--miss-glow); }
 
-/* ---------- HUD label (small mono uppercase) ---------- */
 .hud-label {
   font-family: var(--font-mono);
   font-size: 0.68rem;
@@ -235,7 +220,6 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-dim);
 }
 
-/* ---------- Scrollbar ---------- */
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
@@ -250,7 +234,6 @@ h1, h2, h3, h4, h5, h6 {
   color: #fff;
 }
 
-/* ---------- Shared keyframes ---------- */
 @keyframes floatPulse {
   0%, 100% { opacity: 0.55; }
   50% { opacity: 1; }

@@ -25,8 +25,8 @@ const props = defineProps({
   latestTrajectory: { type: Object, default: null },
   userProfile: { type: Object, default: null },
   viewMode: { type: String, default: 'all' },
-  accentColor: { type: String, default: '#22d3ee' }, // grid / ball / lights
-  forceColor: { type: String, default: '' },          // override trajectory color (duel)
+  accentColor: { type: String, default: '#22d3ee' },
+  forceColor: { type: String, default: '' },
   compact: { type: Boolean, default: false },
 });
 
@@ -37,8 +37,6 @@ let moveBallAnimationId;
 
 const currentPathData = computed(() => {
   if (props.viewMode === 'latest') {
-    // Prefer the live throw; otherwise fall back to the most recent stored
-    // throw so the viewer isn't empty on load / after a page refresh.
     if (props.latestTrajectory && props.latestTrajectory.path && props.latestTrajectory.path.length) {
       return props.latestTrajectory.path;
     }
@@ -82,7 +80,6 @@ const currentPathData = computed(() => {
 
 const trajectoryColor = computed(() => {
   if (props.forceColor) return props.forceColor;
-  // outcome-based fallback inferred from the view mode
   if (props.viewMode.includes('miss')) return '#ff3b6b';
   return '#2ff5b8';
 });
@@ -115,14 +112,12 @@ const initThreeJS = () => {
   rimLight.position.set(-7, 3, -5);
   scene.add(rimLight);
 
-  // Neon grid
   gridHelper = new THREE.GridHelper(12, 12, accent.getHex(), 0x1b2740);
   gridHelper.material.opacity = 0.45;
   gridHelper.material.transparent = true;
   gridHelper.position.y = -2;
   scene.add(gridHelper);
 
-  // Glowing ball (the watch)
   const geometry = new THREE.SphereGeometry(0.22, 32, 32);
   const material = new THREE.MeshStandardMaterial({
     color: accent.getHex(),
@@ -182,13 +177,11 @@ const updateTrajectory = (pathData) => {
   const curve = new THREE.CatmullRomCurve3(points);
   const color = new THREE.Color(trajectoryColor.value);
 
-  // Core neon tube
   const tubeGeo = new THREE.TubeGeometry(curve, 80, 0.045, 10, false);
   const tubeMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 });
   throwTube = new THREE.Mesh(tubeGeo, tubeMat);
   scene.add(throwTube);
 
-  // Wider additive glow tube
   const glowGeo = new THREE.TubeGeometry(curve, 80, 0.13, 10, false);
   const glowMat = new THREE.MeshBasicMaterial({
     color,
@@ -200,19 +193,14 @@ const updateTrajectory = (pathData) => {
   throwGlow = new THREE.Mesh(glowGeo, glowMat);
   scene.add(throwGlow);
 
-  // Tint the ball + its light to the trajectory color
   if (ballMesh) {
     ballMesh.material.color.copy(color);
     ballMesh.material.emissive.copy(color);
     if (ballLight) ballLight.color.copy(color);
   }
 
-  // Real-speed playback: the path samples are uniform in time (dt apart), so we
-  // step the indicator through the actual points at a constant time-per-sample.
-  // The ball then moves fast through the throw's acceleration spike and slows at
-  // the ends — the real velocity profile — instead of a constant glide.
-  const SLOWDOWN = 2.5;  // play 2.5x slower than real time so it's watchable
-  const PAUSE_S = 0.6;   // hold at the end before replaying
+  const SLOWDOWN = 2.5;
+  const PAUSE_S = 0.6;
   const sampleDt = (props.viewMode === 'latest' && props.latestTrajectory?.dt)
     ? props.latestTrajectory.dt
     : 0.02;
@@ -225,7 +213,7 @@ const updateTrajectory = (pathData) => {
     let e = now - startT;
     if (e >= total + PAUSE_S) { startT = now; e = 0; }
     if (e >= total) {
-      ballMesh.position.copy(points[points.length - 1]);  // hold at end during pause
+      ballMesh.position.copy(points[points.length - 1]);
     } else {
       const f = e / segDur;
       const i = Math.min(points.length - 2, Math.floor(f));

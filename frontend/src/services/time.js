@@ -1,7 +1,3 @@
-/**
- * Human-friendly relative time from a Unix epoch (seconds).
- * Returns "—" for missing/untracked timestamps (0 / falsy).
- */
 export const formatRelative = (epochSeconds, nowMs = Date.now()) => {
   if (!epochSeconds) return '—';
   const diffSec = Math.max(0, Math.round(nowMs / 1000 - epochSeconds));
@@ -21,17 +17,11 @@ export const formatRelative = (epochSeconds, nowMs = Date.now()) => {
   return new Date(epochSeconds * 1000).toLocaleDateString('en-US');
 };
 
-/**
- * Absolute, locale-formatted timestamp for tooltips.
- */
 export const formatAbsolute = (epochSeconds) => {
   if (!epochSeconds) return 'No data received yet';
   return new Date(epochSeconds * 1000).toLocaleString('en-US');
 };
 
-/**
- * A player counts as "live" if their last throw arrived within this window.
- */
 export const ONLINE_WINDOW_SEC = 45;
 
 export const isOnline = (epochSeconds, nowMs = Date.now()) => {

@@ -1,15 +1,11 @@
 import mqtt from 'mqtt';
 
-// Local Mosquitto over WebSocket (host port 9101 -> broker's 9001). Adapts to
-// wherever the dashboard is served from: ws://localhost:9101 on the Mac,
-// ws://<mac-ip>:9101 from another device. Override with VITE_MQTT_URL if needed.
 export const MQTT_BROKER = import.meta.env.VITE_MQTT_URL || `ws://${window.location.hostname}:9101`;
 const TOPIC_RESULTS = '/smartpong/throws/results';
 
 let client = null;
 let connected = false;
 
-// Multiple views (Dashboard, Duel-Mode) listen on the same shared connection.
 const resultListeners = new Set();
 const statusListeners = new Set();
 
@@ -17,10 +13,6 @@ const emitStatus = () => {
   statusListeners.forEach((cb) => cb(connected));
 };
 
-/**
- * Open the shared MQTT connection. Safe to call multiple times — it only
- * connects once. Returns the client.
- */
 export const connectMqtt = () => {
   if (client) return client;
 
@@ -67,18 +59,11 @@ export const connectMqtt = () => {
   return client;
 };
 
-/**
- * Register a listener for incoming throw results. Returns an unsubscribe fn.
- */
 export const onResult = (callback) => {
   resultListeners.add(callback);
   return () => resultListeners.delete(callback);
 };
 
-/**
- * Register a listener for connection status changes. Fires immediately with
- * the current status. Returns an unsubscribe fn.
- */
 export const onStatus = (callback) => {
   statusListeners.add(callback);
   callback(connected);

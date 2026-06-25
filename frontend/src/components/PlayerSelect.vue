@@ -70,8 +70,8 @@ const props = defineProps({
   modelValue: { type: String, default: '' },
   users: { type: Array, default: () => [] },
   placeholder: { type: String, default: 'Select player' },
-  direction: { type: String, default: 'down' }, // 'down' | 'up'
-  accent: { type: String, default: '' },         // optional css color override
+  direction: { type: String, default: 'down' },
+  accent: { type: String, default: '' },
 });
 
 const emit = defineEmits(['update:modelValue']);
@@ -81,7 +81,6 @@ const panel = ref(null);
 const isOpen = ref(false);
 const activeIndex = ref(-1);
 
-// Live clock so relative timestamps tick without a re-fetch.
 const nowMs = ref(Date.now());
 let clock = null;
 
@@ -169,7 +168,6 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
-/* ---- Trigger ---- */
 .ps-trigger {
   width: 100%;
   display: flex;
@@ -226,7 +224,6 @@ onBeforeUnmount(() => {
 }
 .ps-caret.flip { transform: rotate(180deg); color: var(--ps-accent); }
 
-/* ---- Live dot ---- */
 .ps-dot, .ps-opt-dot {
   width: 9px;
   height: 9px;
@@ -241,7 +238,6 @@ onBeforeUnmount(() => {
   animation: ringPulse 2s infinite;
 }
 
-/* ---- Panel ---- */
 .ps-panel {
   position: absolute;
   left: 0;
@@ -324,7 +320,6 @@ onBeforeUnmount(() => {
   text-shadow: 0 0 10px color-mix(in srgb, var(--ps-accent) 70%, transparent);
 }
 
-/* ---- Pop transition ---- */
 .ps-pop-enter-active, .ps-pop-leave-active {
   transition: opacity 0.16s ease, transform 0.16s ease;
 }

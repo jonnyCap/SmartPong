@@ -126,7 +126,7 @@ const currentView = ref('dashboard');
 const userProfile = ref(null);
 const latestThrow = ref(null);
 const mqttConnected = ref(false);
-const availableUsers = ref([]); // array of summary objects
+const availableUsers = ref([]);
 const viewMode = ref('latest');
 
 let unsubResult = null;
@@ -159,7 +159,6 @@ const loadProfile = async () => {
   userProfile.value = await fetchUserProfile(selectedUser.value);
 };
 
-// React to player changes from the custom dropdown.
 watch(selectedUser, () => {
   latestThrow.value = null;
   loadProfile();
@@ -169,8 +168,6 @@ onMounted(() => {
   loadUsers();
   loadProfile();
 
-  // Refresh the player list + current profile periodically. Keeps "last seen"
-  // and the dashboard stats fresh even if an MQTT result is ever missed.
   setInterval(() => { loadUsers(); loadProfile(); }, 5000);
 
   connectMqtt();
@@ -180,7 +177,6 @@ onMounted(() => {
       latestThrow.value = payload;
       loadProfile();
     }
-    // A throw from any player updates the picker's "last seen".
     loadUsers();
   });
 });
@@ -200,7 +196,6 @@ onUnmounted(() => {
   gap: 1.25rem;
 }
 
-/* ---------- Sidebar ---------- */
 .sidebar {
   width: 270px;
   flex-shrink: 0;
@@ -305,7 +300,6 @@ nav li.active .icon {
   gap: 0.55rem;
 }
 
-/* ---------- Main ---------- */
 .main-content {
   flex-grow: 1;
   display: flex;

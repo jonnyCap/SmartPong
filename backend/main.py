@@ -19,9 +19,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Local Mosquitto broker (see docker-compose / mosquitto.conf). Override with
-# MQTT_HOST/MQTT_PORT; defaults to the "mosquitto" service on the compose network.
-# The ESP32 firmware must publish to the same broker (use the Mac's LAN IP there).
 mqtt_config = MQTTConfig(
     host=os.environ.get("MQTT_HOST", "mosquitto"),
     port=int(os.environ.get("MQTT_PORT", "1883")),
@@ -43,7 +40,6 @@ class ThrowPayload(BaseModel):
 
 @fast_mqtt.on_connect()
 def connect(client, flags, rc, properties):
-    # Topic to receive classified throw windows from the ESP32
     fast_mqtt.client.subscribe("/smartpong/throws/data")
     print("Connected to MQTT Broker!")
 
@@ -54,11 +50,8 @@ async def message(client, topic, payload, qos, properties):
             data = json.loads(payload.decode())
             payload_obj = ThrowPayload(**data)
 
-            # Stamp the moment we received this throw (used for "last seen" + live feed)
             received_at = time.time()
 
-            # 1. Analyze the throw once (Madgwick fusion). Returns throw-only
-            #    metrics (wind-up excluded) plus full-window variants.
             m = analyze_throw(
                 payload_obj.ax, payload_obj.ay, payload_obj.az,
                 payload_obj.gx, payload_obj.gy, payload_obj.gz
@@ -67,13 +60,11 @@ async def message(client, topic, payload, qos, properties):
             peak_full, drift_full = m["peak_full"], m["drift_full"]
             trajectory = m["trajectory"]
 
-            # 2. Categorize against the user profile (throw-only + full-window)
             control_category = profile_manager.categorize_throw_control(payload_obj.user_id, peak_accel)
             drift_category = profile_manager.categorize_throw_drift(payload_obj.user_id, drift_angle)
             control_category_full = profile_manager.categorize_throw_control(payload_obj.user_id, peak_full)
             drift_category_full = profile_manager.categorize_throw_drift(payload_obj.user_id, drift_full)
 
-            # 3. Add to profile and update stats
             profile = profile_manager.add_throw(
                 user_id=payload_obj.user_id,
                 peak_accel=peak_accel,
@@ -89,7 +80,6 @@ async def message(client, topic, payload, qos, properties):
                 drift_category_full=drift_category_full,
             )
 
-            # 4. Return results to the watch
             result = {
                 "user_id": payload_obj.user_id,
                 "is_hit": payload_obj.hit,
@@ -106,10 +96,10 @@ async def message(client, topic, payload, qos, properties):
                 "user_total_throws": profile.total_throws,
                 "user_hit_rate": profile.hit_rate
             }
-            
+
             fast_mqtt.publish("/smartpong/throws/results", json.dumps(result))
             print(f"Processed throw for {payload_obj.user_id}. Results published to /smartpong/throws/results")
-            
+
         except Exception as e:
             print(f"Error processing MQTT message: {e}")
 
@@ -119,25 +109,13 @@ def read_root():
 
 @app.get("/users")
 def get_users():
-    """
-    Per-player metadata for the player picker:
-    user_id, last_seen (epoch seconds), total_throws, total_hits, hit_rate.
-    Sorted by most recently active player first.
-    """
     return {"users": profile_manager.get_all_user_summaries()}
 
 @app.get("/profiles/{user_id}")
 def get_user_profile(user_id: str):
-    """
-    Retrieve user stats such as average peak acceleration and hit rate.
-    """
     return profile_manager.get_profile(user_id)
 
 @app.post("/profiles/{user_id}/reset")
 def reset_user_profile(user_id: str):
-    """
-    Clear a player's stats server-side (used by the Duel-Mode reset button).
-    Keeps the player selectable with zeroed counters.
-    """
     profile = profile_manager.reset_profile(user_id)
     return {"status": "reset", "user_id": user_id, "total_throws": profile.total_throws}

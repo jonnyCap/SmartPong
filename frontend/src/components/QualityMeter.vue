@@ -33,7 +33,6 @@ import { computed } from 'vue';
 
 const props = defineProps({
   label: { type: String, required: true },
-  // [{ label, pct: "12.5%", tone: 'good' | 'mid' | 'bad' }]
   segments: { type: Array, required: true },
 });
 
@@ -64,7 +63,6 @@ const dominant = computed(() =>
   letter-spacing: 0.04em;
 }
 
-/* ---- Segmented bar ---- */
 .qbar {
   display: flex;
   height: 12px;
@@ -80,7 +78,6 @@ const dominant = computed(() =>
 }
 .qseg.active { opacity: 1; }
 
-/* ---- Legend ---- */
 .qlegend {
   display: flex;
   flex-wrap: wrap;
@@ -104,7 +101,6 @@ const dominant = computed(() =>
 .qleg.active i { opacity: 1; }
 .qleg b { color: var(--text-main); font-size: 0.66rem; }
 
-/* ---- Tones ---- */
 .tone-good { color: var(--hit); }
 .tone-mid { color: var(--warn); }
 .tone-bad { color: var(--miss); }

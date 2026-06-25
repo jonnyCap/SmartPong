@@ -1,10 +1,5 @@
 const API_BASE = 'http://localhost:8000';
 
-/**
- * Returns per-player metadata objects:
- *   { user_id, last_seen, total_throws, total_hits, hit_rate }
- * Sorted by most recently active player first (backend-side).
- */
 export const fetchUsers = async () => {
   try {
     const response = await fetch(`${API_BASE}/users`);
@@ -19,9 +14,6 @@ export const fetchUsers = async () => {
   }
 };
 
-/**
- * Reset a player's stats server-side. Returns the reset confirmation or null.
- */
 export const resetProfile = async (userId) => {
   try {
     const response = await fetch(`${API_BASE}/profiles/${userId}/reset`, { method: 'POST' });

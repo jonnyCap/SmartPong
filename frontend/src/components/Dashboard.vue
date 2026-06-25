@@ -195,7 +195,6 @@ const driftSegments = computed(() => [
   gap: 1.2rem;
 }
 
-/* ---- Hero ---- */
 .hero {
   display: flex;
   justify-content: space-between;
@@ -241,7 +240,6 @@ const driftSegments = computed(() => [
 .mini-stat { display: flex; flex-direction: column; gap: 0.2rem; }
 .mini-val { font-size: 1.5rem; font-weight: 700; }
 
-/* ---- Stat cards ---- */
 .stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -275,7 +273,6 @@ const driftSegments = computed(() => [
 .value .unit { font-size: 0.9rem; color: var(--text-muted); }
 .subtext { font-size: 0.66rem; color: var(--text-dim); }
 
-/* ---- Quality ---- */
 .quality-block { display: flex; flex-direction: column; gap: 1.4rem; margin-top: 0.2rem; }
 
 .loading {

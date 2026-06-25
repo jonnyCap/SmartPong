@@ -1,6 +1,5 @@
 <template>
   <div class="duel">
-    <!-- Top selector bar -->
     <div class="duel-pickers">
       <div class="picker picker-a">
         <span class="hud-label">Player A</span>
@@ -29,9 +28,7 @@
       </div>
     </div>
 
-    <!-- Arena -->
     <div class="arena">
-      <!-- Side A -->
       <section class="side side-a glass-panel hud-corners" :class="{ flash: flashA, lead: leadCount.a > leadCount.b }">
         <div class="side-head">
           <span class="side-dot"></span>
@@ -69,7 +66,6 @@
         <ThrowDetail :throw-data="newestA" side="a" />
       </section>
 
-      <!-- Center comparison -->
       <div class="versus">
         <CompareRow label="Hit Rate" :a="statsA.hitRate" :b="statsB.hitRate" suffix="%" higher-wins />
         <CompareRow label="Peak Accel" :a="statsA.avgAccel" :b="statsB.avgAccel" suffix=" g" :decimals="2" higher-wins />
@@ -84,7 +80,6 @@
         <span class="hud-label score-label">Categories Won</span>
       </div>
 
-      <!-- Side B -->
       <section class="side side-b glass-panel hud-corners" :class="{ flash: flashB, lead: leadCount.b > leadCount.a }">
         <div class="side-head">
           <span class="side-dot"></span>
@@ -168,7 +163,6 @@ const computeStats = (profile) => {
 const statsA = computed(() => computeStats(profileA.value));
 const statsB = computed(() => computeStats(profileB.value));
 
-// Most recent throw to show in the detail card: live throw wins, else last stored.
 const lastStored = (profile) => {
   if (!profile || !profile.throws || profile.throws.length === 0) return null;
   return profile.throws[profile.throws.length - 1];
@@ -176,7 +170,6 @@ const lastStored = (profile) => {
 const newestA = computed(() => latestA.value || lastStored(profileA.value));
 const newestB = computed(() => latestB.value || lastStored(profileB.value));
 
-// Viewer mode: show live 'latest', else the last stored throw's path.
 const viewerModeFor = (latest, profile) => {
   if (latest) return 'latest';
   if (profile && profile.throws && profile.throws.length > 0) {
@@ -187,7 +180,6 @@ const viewerModeFor = (latest, profile) => {
 const viewerModeA = computed(() => viewerModeFor(latestA.value, profileA.value));
 const viewerModeB = computed(() => viewerModeFor(latestB.value, profileB.value));
 
-// Count how many metric categories each side leads (drift: lower wins).
 const leadCount = computed(() => {
   const a = statsA.value, b = statsB.value;
   let ac = 0, bc = 0;
@@ -206,7 +198,6 @@ const loadB = async () => { profileB.value = playerB.value ? await fetchUserProf
 watch(playerA, () => { latestA.value = null; loadA(); });
 watch(playerB, () => { latestB.value = null; loadB(); });
 
-// Seed default players A/B from the two most-recently-active users.
 watch(() => props.users, (list) => {
   if (!list || list.length === 0) return;
   const ids = list.map((u) => u.user_id);
@@ -216,8 +207,7 @@ watch(() => props.users, (list) => {
   }
 }, { immediate: true });
 
-// --- Server-side reset (both players), with a two-step confirm ---
-const resetPhase = ref('idle'); // idle | confirm | working
+const resetPhase = ref('idle');
 let confirmTimer = null;
 
 const resetLabel = computed(() => {
@@ -238,7 +228,6 @@ const onResetClick = async () => {
     return;
   }
 
-  // confirm -> execute
   clearTimeout(confirmTimer);
   resetPhase.value = 'working';
   const targets = [...new Set([playerA.value, playerB.value].filter(Boolean))];
@@ -276,8 +265,6 @@ onMounted(() => {
     }
   });
 
-  // Robustness fallback: keep both profiles fresh even if an MQTT result is
-  // missed (e.g. a brief WebSocket drop). MQTT still drives the instant flash.
   pollTimer = setInterval(() => { loadA(); loadB(); }, 3500);
 });
 
@@ -299,7 +286,6 @@ onBeforeUnmount(() => {
   min-height: 0;
 }
 
-/* ---- Pickers ---- */
 .duel-pickers {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -363,7 +349,6 @@ onBeforeUnmount(() => {
   50% { box-shadow: 0 0 26px 0 var(--miss-glow); }
 }
 
-/* ---- Arena ---- */
 .arena {
   display: grid;
   grid-template-columns: 1fr minmax(190px, 240px) 1fr;
@@ -448,7 +433,6 @@ onBeforeUnmount(() => {
 }
 .side-hero-val .u { font-size: 1rem; color: var(--text-muted); }
 
-/* Prominent successful / unsuccessful throw counts */
 .side-tally {
   display: flex;
   gap: 0.9rem;
@@ -489,7 +473,6 @@ onBeforeUnmount(() => {
 
 .side-viewer { flex-grow: 1; min-height: 160px; }
 
-/* ---- Versus center column ---- */
 .versus {
   display: flex;
   flex-direction: column;
