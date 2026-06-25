@@ -483,7 +483,6 @@ esp_err_t m5stickc_plus_render_status(m5stickc_plus_t *device, const app_display
     framebuffer_fill(device, APP_COLOR_BACKGROUND);
 
     if (snapshot->recorder_state == APP_RECORDER_STATE_RECORDING) {
-        // Draw a HUGE popup for feedback!
         framebuffer_fill_rect(device, 0, 0, M5STICKC_PLUS_LCD_H_RES, M5STICKC_PLUS_LCD_V_RES, 0x0000);
         framebuffer_draw_centered_text(device, 60, "THROW DETECTED", 2, APP_COLOR_TEXT);
         framebuffer_draw_centered_text(device, 110, "A: HIT (1x PRESS)", 1, APP_COLOR_TEXT);

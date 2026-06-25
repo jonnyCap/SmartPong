@@ -35,9 +35,6 @@ static void display_task(void *arg)
     }
 }
 
-// Connect WiFi in the background so a missing/slow network never blocks the UI.
-// On success we start MQTT + throw classification; on failure the device stays
-// usable and the screen shows an offline status instead of going black.
 static void network_task(void *arg)
 {
     snprintf(display_snapshot.detail_line, sizeof(display_snapshot.detail_line), "CONNECTING WIFI...");
@@ -63,8 +60,8 @@ static void network_task(void *arg)
     vTaskDelete(NULL);
 }
 
-#define BUTTON_HIT_GPIO 37 // Commonly Button A on M5StickC
-#define BUTTON_MISS_GPIO 39 // Commonly Button B on M5StickC
+#define BUTTON_HIT_GPIO 37
+#define BUTTON_MISS_GPIO 39
 
 static void configure_buttons(void)
 {
@@ -84,15 +81,10 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    // Configure Hit/Miss inputs
     configure_buttons();
 
-    // Initialize M5StickC Plus hardware (AXP192 power, MPU6886 IMU, ST7789 LCD)
-    // BEFORE networking so the screen comes up immediately and never sits black
-    // while WiFi is connecting.
     ESP_ERROR_CHECK(m5stickc_plus_init(&m5_device));
 
-    // Seed the display snapshot, then start rendering right away.
     display_snapshot.config_valid = true;
     display_snapshot.wifi_connected = false;
     display_snapshot.tcp_connected = false;
@@ -103,7 +95,5 @@ void app_main(void)
     snprintf(display_snapshot.server_message, sizeof(display_snapshot.server_message), "WAITING");
     xTaskCreate(display_task, "display_task", 4096, NULL, 4, NULL);
 
-    // Connect WiFi in the background (non-blocking, non-fatal); MQTT + the IMU
-    // windowing/classification task start once WiFi is up.
     xTaskCreate(network_task, "network_task", 8192, NULL, 5, NULL);
 }
