@@ -1,4 +1,4 @@
-# SmartPong 🏓
+# SmartPong 🍺🎯
 
 **SmartPong** is an IoT- and ML-powered tracking system for Beer Pong. Using a wrist-worn **M5StickC Plus** (ESP32), it detects throws on-device in real time, collects player feedback (Hit vs. Miss), computes biomechanical metrics (peak acceleration, lateral drift, and reconstructed 3D trajectories), and streams live results to an interactive web dashboard for real-time analytics and head-to-head duels.
 
