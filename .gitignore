@@ -24,7 +24,7 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# Virtual environments
+# Virtual environments & Environment configs
 venv/
 .venv/
 env/
@@ -32,6 +32,14 @@ env/
 ENV/
 env.bak/
 venv.bak/
+.env
+.env.*
+*.env
+*.local
+
+# Local credentials & network configuration
+network_config.h
+**/network_config.h
 
 # Jupyter Notebooks / Classification
 .ipynb_checkpoints

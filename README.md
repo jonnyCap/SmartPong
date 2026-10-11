@@ -165,16 +165,22 @@ Once running, access the services:
 
 Requires **ESP-IDF v5.x**:
 
-1. Open [`firmware/main/mqtt_logic.c`](firmware/main/mqtt_logic.c) and configure your local network settings:
-   - `MDNS_BROKER_HOST` or `MQTT_FALLBACK_URI` (pointing to your computer's LAN IP).
-2. Configure Wi-Fi SSID and password:
+1. Run the configuration script to set up your Wi-Fi credentials and local MQTT broker host:
+   ```bash
+   ./setup.sh
+   ```
+   *(This safely creates your local `network_config.h` and updates `firmware/sdkconfig`. Both files are automatically ignored by Git to prevent exposing credentials).*
+
+2. (Optional) Alternatively, Wi-Fi can also be configured manually using ESP-IDF menuconfig:
    ```bash
    cd firmware
    idf.py menuconfig
    # Navigate to: Example Connection Configuration -> Wi-Fi SSID & Password
    ```
+
 3. Build, flash to the M5StickC Plus, and open the serial monitor:
    ```bash
+   cd firmware
    idf.py build flash monitor
    ```
 

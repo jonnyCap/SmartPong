@@ -1,0 +1,10 @@
+#ifndef NETWORK_CONFIG_H
+#define NETWORK_CONFIG_H
+
+// Local Network & MQTT Broker Configuration
+// Copy this file to network_config.h or run ./setup.sh
+#define MDNS_BROKER_HOST  "smartpong-broker"
+#define MQTT_FALLBACK_URI "mqtt://192.168.1.100"
+#define MDNS_RESOLVE_TIMEOUT_MS 4000
+
+#endif // NETWORK_CONFIG_H

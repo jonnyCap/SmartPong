@@ -31,6 +31,8 @@ build/
 flasher_args.json # Generated in build directory
 sdkconfig.old
 sdkconfig
+network_config.h
+main/network_config.h
 
 # ESP-IDF dependencies
 # For older versions or manual component management

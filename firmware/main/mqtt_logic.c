@@ -10,9 +10,21 @@
 static const char *TAG = "mqtt_logic";
 static esp_mqtt_client_handle_t client = NULL;
 
+#if __has_include("network_config.h")
+#include "network_config.h"
+#endif
+
+#ifndef MDNS_BROKER_HOST
 #define MDNS_BROKER_HOST  "smartpong-broker"
+#endif
+
+#ifndef MQTT_FALLBACK_URI
 #define MQTT_FALLBACK_URI "mqtt://192.168.1.100"
+#endif
+
+#ifndef MDNS_RESOLVE_TIMEOUT_MS
 #define MDNS_RESOLVE_TIMEOUT_MS 4000
+#endif
 
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
